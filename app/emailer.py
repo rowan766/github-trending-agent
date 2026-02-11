@@ -14,18 +14,21 @@ async def send_report_email(html_content: str) -> bool:
         logger.warning("Email not configured, skipping")
         return False
 
+    # 支持逗号分隔多个收件人
+    recipients = [e.strip() for e in settings.email_to.split(",") if e.strip()]
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"🔥 GitHub Trending 日报 — {date.today()}"
     msg["From"] = settings.smtp_user
-    msg["To"] = settings.email_to
+    msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(html_content, "html", "utf-8"))
 
     for attempt in range(3):
         try:
             with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port) as server:
                 server.login(settings.smtp_user, settings.smtp_password)
-                server.send_message(msg)
-            logger.info(f"Email sent to {settings.email_to}")
+                server.sendmail(settings.smtp_user, recipients, msg.as_string())
+            logger.info(f"Email sent to {recipients}")
             return True
         except Exception as e:
             logger.error(f"Email attempt {attempt + 1} failed: {e}")
