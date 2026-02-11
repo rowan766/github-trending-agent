@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  trending-agent:
+    build: .
+    container_name: github-trending-agent
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
