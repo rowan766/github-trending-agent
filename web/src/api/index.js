@@ -44,3 +44,9 @@ export const updateUser = (id, data) => api.put(`/admin/users/${id}`, data)
 export const deleteUser = (id) => api.delete(`/admin/users/${id}`)
 export const getAdminPresetTypes = () => api.get('/admin/preset-types')
 export const updatePresetTypes = (types) => api.put('/admin/preset-types', types)
+
+// Feedback
+export const submitFeedback = (data) => api.post('/feedback', data)
+export const getMyFeedback = () => api.get('/feedback')
+export const getAdminFeedback = () => api.get('/admin/feedback')
+export const replyFeedback = (id, reply) => api.put(`/admin/feedback/${id}/reply`, { reply })

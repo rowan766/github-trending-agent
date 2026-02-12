@@ -6,6 +6,8 @@ const routes = [
   { path: '/settings', name: 'Settings', component: () => import('../views/Settings.vue') },
   { path: '/report/:id', name: 'ReportDetail', component: () => import('../views/ReportDetail.vue') },
   { path: '/users', name: 'Users', component: () => import('../views/UserManagement.vue'), meta: { admin: true } },
+  { path: '/feedback', name: 'Feedback', component: () => import('../views/Feedback.vue') },
+  { path: '/admin/feedback', name: 'AdminFeedback', component: () => import('../views/AdminFeedback.vue'), meta: { admin: true } },
 ]
 
 const router = createRouter({ history: createWebHashHistory(), routes })

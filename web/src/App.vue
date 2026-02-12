@@ -48,9 +48,17 @@
             <el-icon><Setting /></el-icon>
             <template #title>技术栈配置</template>
           </el-menu-item>
+          <el-menu-item index="/feedback">
+            <el-icon><ChatDotRound /></el-icon>
+            <template #title>联系开发者</template>
+          </el-menu-item>
           <el-menu-item v-if="userStore.isAdmin" index="/users">
             <el-icon><UserFilled /></el-icon>
             <template #title>用户管理</template>
+          </el-menu-item>
+          <el-menu-item v-if="userStore.isAdmin" index="/admin/feedback">
+            <el-icon><Comment /></el-icon>
+            <template #title>意见管理</template>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -84,7 +92,7 @@
         <el-input v-model="profileForm.emails[2]" placeholder="可选，填写第三个接收邮箱" />
       </el-form-item>
       <el-form-item label="邮件推送">
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display:flex;align-items:center;gap:12px">
           <el-switch v-model="profileForm.receive_email" active-text="开启" inactive-text="关闭" />
           <el-text type="info" size="small">开启后每日日报发送到以上邮箱</el-text>
         </div>
@@ -101,10 +109,11 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { ChatDotRound, Comment } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,20 +128,28 @@ function parseEmails(emailStr) {
   return [parts[0] || '', parts[1] || '', parts[2] || '']
 }
 
+function openProfileDialog() {
+  const emails = parseEmails(userStore.user?.email)
+  profileForm.emails = emails
+  profileForm.receive_email = userStore.user?.receive_email !== false && userStore.user?.receive_email !== 0
+  profileForm.password = ''
+  showProfile.value = true
+}
+
 function handleCmd(cmd) {
-  if (cmd === 'profile') {
-    const emails = parseEmails(userStore.user?.email)
-    profileForm.emails = emails
-    profileForm.receive_email = userStore.user?.receive_email !== false && userStore.user?.receive_email !== 0
-    profileForm.password = ''
-    showProfile.value = true
-  } else if (cmd === 'logout') {
+  if (cmd === 'profile') openProfileDialog()
+  else if (cmd === 'logout') {
     ElMessageBox.confirm('确定退出登录？', '提示', { type: 'warning' }).then(() => {
       userStore.logout()
       router.push('/login')
     }).catch(() => {})
   }
 }
+
+function onOpenProfile() { openProfileDialog() }
+
+onMounted(() => { window.addEventListener('open-profile', onOpenProfile) })
+onUnmounted(() => { window.removeEventListener('open-profile', onOpenProfile) })
 
 async function handleSaveProfile() {
   const validEmails = profileForm.emails.filter(e => e.trim())
@@ -151,10 +168,6 @@ async function handleSaveProfile() {
     ElMessage.error(e.response?.data?.detail || '保存失败')
   } finally { saving.value = false }
 }
-
-// 全局暴露给子组件调用
-const openProfile = () => handleCmd('profile')
-defineExpose({ openProfile })
 </script>
 
 <style>
@@ -162,14 +175,9 @@ defineExpose({ openProfile })
 html, body, #app { height: 100%; }
 .app-layout { height: 100vh; flex-direction: column; }
 .app-header {
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  height: 56px;
-  z-index: 10;
+  background: #fff; border-bottom: 1px solid #e8e8e8;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; height: 56px; z-index: 10;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 .header-left { display: flex; align-items: center; gap: 12px; }
@@ -178,22 +186,16 @@ html, body, #app { height: 100%; }
 .header-right { display: flex; align-items: center; }
 .user-dropdown { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .username { font-size: 14px; color: #333; }
-
 .app-aside {
-  background: #1d1e2c;
-  overflow-y: auto;
-  overflow-x: hidden;
-  transition: width 0.3s;
+  background: #1d1e2c; overflow-y: auto; overflow-x: hidden; transition: width 0.3s;
 }
 .aside-menu { border-right: none; background: transparent; height: 100%; }
 .aside-menu:not(.el-menu--collapse) { width: 220px; }
 .aside-menu .el-menu-item { color: rgba(255,255,255,0.7); }
 .aside-menu .el-menu-item:hover,
 .aside-menu .el-menu-item.is-active { color: #fff; background: rgba(240,136,62,0.15); }
-
 .app-main { background: #f5f7fa; overflow-y: auto; padding: 24px; }
 .main-content { max-width: 1100px; margin: 0 auto; }
-
 @media (max-width: 768px) {
   .app-aside { position: fixed; z-index: 20; height: calc(100vh - 56px); top: 56px; }
   .app-main { padding: 16px; }
