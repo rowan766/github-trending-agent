@@ -2,7 +2,6 @@ import axios from 'axios'
 
 const api = axios.create({ baseURL: '/api' })
 
-// Token interceptor
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
@@ -22,6 +21,7 @@ api.interceptors.response.use(r => r, error => {
 export const login = (data) => api.post('/auth/login', data)
 export const register = (data) => api.post('/auth/register', data)
 export const getMe = () => api.get('/auth/me')
+export const updateProfile = (data) => api.put('/auth/profile', data)
 
 // Pipeline
 export const getHealth = () => api.get('/health')

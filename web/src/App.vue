@@ -1,27 +1,36 @@
 <template>
-  <!-- Login page: no layout -->
+  <!-- Login page -->
   <router-view v-if="route.path === '/login'" />
 
   <!-- Main layout -->
   <el-container v-else class="app-layout">
-    <!-- Header -->
     <el-header class="app-header">
       <div class="header-left">
-        <el-icon :size="22" color="#f0883e" class="header-menu-btn" @click="collapsed = !collapsed"><Fold v-if="!collapsed" /><Expand v-else /></el-icon>
+        <el-icon :size="22" color="#f0883e" class="header-menu-btn" @click="collapsed = !collapsed">
+          <Fold v-if="!collapsed" /><Expand v-else />
+        </el-icon>
         <span class="header-title">🔥 GitHub Trending Agent</span>
       </div>
       <div class="header-right">
         <el-dropdown trigger="click" @command="handleCmd">
           <span class="user-dropdown">
-            <el-avatar :size="32" style="background:#f0883e">{{ userStore.user?.username?.[0]?.toUpperCase() }}</el-avatar>
+            <el-avatar :size="32" style="background:#f0883e">
+              {{ userStore.user?.username?.[0]?.toUpperCase() }}
+            </el-avatar>
             <span class="username">{{ userStore.user?.username }}</span>
-            <el-tag size="small" :type="userStore.isAdmin ? 'danger' : 'info'">{{ userStore.isAdmin ? '管理员' : '用户' }}</el-tag>
+            <el-tag size="small" :type="userStore.isAdmin ? 'danger' : 'info'">
+              {{ userStore.isAdmin ? '管理员' : '用户' }}
+            </el-tag>
             <el-icon><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人信息</el-dropdown-item>
-              <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+              <el-dropdown-item command="profile">
+                <el-icon><User /></el-icon> 个人中心
+              </el-dropdown-item>
+              <el-dropdown-item divided command="logout">
+                <el-icon><SwitchButton /></el-icon> 退出登录
+              </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -29,7 +38,6 @@
     </el-header>
 
     <el-container>
-      <!-- Sidebar -->
       <el-aside :width="collapsed ? '64px' : '220px'" class="app-aside">
         <el-menu :default-active="route.path" router :collapse="collapsed" class="aside-menu">
           <el-menu-item index="/">
@@ -41,13 +49,12 @@
             <template #title>技术栈配置</template>
           </el-menu-item>
           <el-menu-item v-if="userStore.isAdmin" index="/users">
-            <el-icon><User /></el-icon>
+            <el-icon><UserFilled /></el-icon>
             <template #title>用户管理</template>
           </el-menu-item>
         </el-menu>
       </el-aside>
 
-      <!-- Content -->
       <el-main class="app-main">
         <div class="main-content">
           <router-view />
@@ -55,26 +62,75 @@
       </el-main>
     </el-container>
   </el-container>
+
+  <!-- Profile dialog -->
+  <el-dialog v-model="showProfile" title="个人中心" width="460px" destroy-on-close>
+    <el-form :model="profileForm" label-width="100px">
+      <el-form-item label="用户名">
+        <el-input :value="userStore.user?.username" disabled />
+      </el-form-item>
+      <el-form-item label="角色">
+        <el-tag :type="userStore.isAdmin ? 'danger' : 'info'">
+          {{ userStore.isAdmin ? '管理员' : '普通用户' }}
+        </el-tag>
+      </el-form-item>
+      <el-form-item label="接收邮箱">
+        <el-input v-model="profileForm.email" placeholder="填写邮箱以接收日报推送" />
+      </el-form-item>
+      <el-form-item label="邮件推送">
+        <el-switch v-model="profileForm.receive_email" active-text="开启" inactive-text="关闭" />
+        <el-text type="info" style="margin-left: 12px; font-size: 12px;">开启后每日日报将发送到你的邮箱</el-text>
+      </el-form-item>
+      <el-form-item label="修改密码">
+        <el-input v-model="profileForm.password" type="password" placeholder="留空不修改" show-password />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="showProfile = false">取消</el-button>
+      <el-button type="primary" :loading="saving" @click="handleSaveProfile">保存</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const collapsed = ref(false)
+const showProfile = ref(false)
+const saving = ref(false)
+const profileForm = reactive({ email: '', receive_email: true, password: '' })
 
 function handleCmd(cmd) {
-  if (cmd === 'logout') {
+  if (cmd === 'profile') {
+    profileForm.email = userStore.user?.email || ''
+    profileForm.receive_email = userStore.user?.receive_email !== false && userStore.user?.receive_email !== 0
+    profileForm.password = ''
+    showProfile.value = true
+  } else if (cmd === 'logout') {
     ElMessageBox.confirm('确定退出登录？', '提示', { type: 'warning' }).then(() => {
       userStore.logout()
       router.push('/login')
     }).catch(() => {})
   }
+}
+
+async function handleSaveProfile() {
+  saving.value = true
+  try {
+    const data = { email: profileForm.email, receive_email: profileForm.receive_email }
+    if (profileForm.password) data.password = profileForm.password
+    await userStore.updateProfile(data)
+    ElMessage.success('保存成功')
+    showProfile.value = false
+  } catch (e) {
+    ElMessage.error(e.response?.data?.detail || '保存失败')
+  } finally { saving.value = false }
 }
 </script>
 
@@ -106,11 +162,7 @@ html, body, #app { height: 100%; }
   overflow-x: hidden;
   transition: width 0.3s;
 }
-.aside-menu {
-  border-right: none;
-  background: transparent;
-  height: 100%;
-}
+.aside-menu { border-right: none; background: transparent; height: 100%; }
 .aside-menu:not(.el-menu--collapse) { width: 220px; }
 .aside-menu .el-menu-item { color: rgba(255,255,255,0.7); }
 .aside-menu .el-menu-item:hover,
@@ -119,13 +171,11 @@ html, body, #app { height: 100%; }
 .app-main { background: #f5f7fa; overflow-y: auto; padding: 24px; }
 .main-content { max-width: 1100px; margin: 0 auto; }
 
-/* Mobile */
 @media (max-width: 768px) {
   .app-aside { position: fixed; z-index: 20; height: calc(100vh - 56px); top: 56px; }
   .app-main { padding: 16px; }
   .main-content { max-width: 100%; }
   .username { display: none; }
   .header-title { font-size: 15px; }
-  .el-table { font-size: 13px; }
 }
 </style>
