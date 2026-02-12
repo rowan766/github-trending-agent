@@ -81,21 +81,30 @@ async function handleRegister() {
 </script>
 
 <style scoped>
+html, body, #app {
+  height: 100%;
+  margin: 0;
+}
 .login-page {
   min-height: 100vh;
+  width: 100vw;              /* 关键：铺满宽度 */
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1d1e2c 0%, #2d2f45 100%);
-  padding: 20px;
+
+  background: url('../../static/images/login-bg.png') center / cover no-repeat;
+  overflow: hidden;  
 }
 .login-card {
-  background: #fff;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-radius: 12px;
   padding: 40px 36px;
   width: 100%;
   max-width: 400px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  opacity: 0.95;
 }
 .login-header { text-align: center; margin-bottom: 24px; }
 .login-header h1 { font-size: 28px; margin-bottom: 6px; }
