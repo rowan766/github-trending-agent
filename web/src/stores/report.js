@@ -5,37 +5,29 @@ import { getReports, getReportDetail, getStatus, triggerPipeline } from '../api'
 export const useReportStore = defineStore('report', () => {
   const list = ref([])
   const currentReport = ref(null)
-  const pipelineStatus = ref({ running: false, last_result: null })
+  const pipelineStatus = ref({ running: false, last_result: null, progress: { percentage: 0, step: 'idle', message: '等待中' } })
   const loading = ref(false)
 
-  async function fetchList() {
+  async function fetchList(limit = 50) {
     loading.value = true
-    try {
-      const { data } = await getReports()
-      list.value = data
-    } finally {
-      loading.value = false
-    }
+    try { list.value = (await getReports(limit)).data }
+    finally { loading.value = false }
   }
 
   async function fetchDetail(id) {
     loading.value = true
-    try {
-      const { data } = await getReportDetail(id)
-      currentReport.value = data
-    } finally {
-      loading.value = false
-    }
+    try { currentReport.value = (await getReportDetail(id)).data }
+    finally { loading.value = false }
   }
 
   async function fetchStatus() {
-    const { data } = await getStatus()
-    pipelineStatus.value = data
+    try { pipelineStatus.value = (await getStatus()).data }
+    catch {}
   }
 
   async function trigger() {
     const { data } = await triggerPipeline()
-    pipelineStatus.value.running = data.status === 'triggered'
+    if (data.status === 'triggered') pipelineStatus.value.running = true
     return data
   }
 

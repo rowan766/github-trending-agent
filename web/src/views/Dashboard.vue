@@ -7,13 +7,28 @@
           <el-text type="info">管理和查看每日 GitHub Trending 推送</el-text>
         </div>
         <div class="action-btns">
-          <el-tag v-if="reportStore.pipelineStatus.running" type="warning" effect="dark" class="running-tag">
-            <el-icon class="is-loading"><Loading /></el-icon> 正在运行
-          </el-tag>
-          <el-button type="primary" size="large" :loading="triggering" @click="handleTrigger" class="trigger-btn">
-            <template #icon><el-icon><Promotion /></el-icon></template>
-            手动触发
+          <el-button type="primary" size="large" :loading="triggering" :disabled="isRunning" @click="handleTrigger" class="trigger-btn">
+            <template v-if="!triggering" #icon><el-icon><Promotion /></el-icon></template>
+            {{ isRunning ? '运行中...' : '手动触发' }}
           </el-button>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div v-if="isRunning" class="progress-section">
+        <div class="progress-header">
+          <span class="progress-step">
+            <el-icon class="is-loading" style="vertical-align: -2px;"><Loading /></el-icon>
+            {{ progress.message }}
+          </span>
+          <span class="progress-pct">{{ progress.percentage }}%</span>
+        </div>
+        <el-progress :percentage="progress.percentage" :stroke-width="12" :show-text="false" color="#f0883e" />
+        <div class="progress-steps">
+          <span v-for="s in stepList" :key="s.key"
+            :class="['step-dot', { active: s.key === progress.step, done: s.pct < progress.percentage }]">
+            {{ s.label }}
+          </span>
         </div>
       </div>
     </el-card>
@@ -90,6 +105,18 @@ const userStore = useUserStore()
 const triggering = ref(false)
 let pollTimer = null
 
+const isRunning = computed(() => reportStore.pipelineStatus.running)
+const progress = computed(() => reportStore.pipelineStatus.progress || { percentage: 0, step: 'idle', message: '等待中' })
+
+const stepList = [
+  { key: 'scraping', label: '抓取', pct: 15 },
+  { key: 'dedup', label: '去重', pct: 25 },
+  { key: 'enriching', label: '详情', pct: 50 },
+  { key: 'analyzing', label: 'AI分析', pct: 75 },
+  { key: 'report', label: '报告', pct: 90 },
+  { key: 'email', label: '邮件', pct: 95 },
+]
+
 const latestCount = computed(() => reportStore.list[0]?.project_count || 0)
 const lastRunText = computed(() => {
   const r = reportStore.pipelineStatus.last_result
@@ -102,7 +129,6 @@ function hasEmail() {
 }
 
 async function handleTrigger() {
-  // 校验邮箱
   if (!hasEmail()) {
     try {
       await ElMessageBox.confirm(
@@ -110,13 +136,10 @@ async function handleTrigger() {
         '提示',
         { confirmButtonText: '去配置', cancelButtonText: '继续触发', type: 'warning', distinguishCancelAndClose: true }
       )
-      // 点击"去配置" -> 打开个人中心
-      // 通过 event bus 触发 App.vue 的 profile dialog
       window.dispatchEvent(new CustomEvent('open-profile'))
       return
     } catch (action) {
       if (action === 'close') return
-      // 点击"继续触发" -> 继续执行
     }
   }
 
@@ -130,6 +153,7 @@ async function handleTrigger() {
 }
 
 function startPoll() {
+  if (pollTimer) return
   pollTimer = setInterval(async () => {
     await reportStore.fetchStatus()
     if (!reportStore.pipelineStatus.running) {
@@ -137,7 +161,7 @@ function startPoll() {
       await reportStore.fetchList()
       ElMessage.success('任务完成!')
     }
-  }, 3000)
+  }, 2000)
 }
 
 function goDetail(row) { router.push(`/report/${row.id}`) }
@@ -146,8 +170,10 @@ onMounted(() => {
   reportStore.fetchList()
   reportStore.fetchStatus()
   userStore.fetchMe()
+  // 如果当前正在运行，自动开始轮询
+  if (reportStore.pipelineStatus.running) startPoll()
 })
-onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
+onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } })
 </script>
 
 <style scoped>
@@ -160,18 +186,70 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
   gap: 12px;
 }
 .action-bar h2 { margin-bottom: 4px; }
-.action-btns {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
+.action-btns { flex-shrink: 0; }
 .trigger-btn {
   min-width: 130px;
   height: 40px;
   font-size: 15px;
 }
-.running-tag { height: 32px; line-height: 32px; }
+
+/* Progress */
+.progress-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.progress-step {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+.progress-pct {
+  font-size: 14px;
+  color: #f0883e;
+  font-weight: 600;
+}
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 4px;
+}
+.step-dot {
+  font-size: 12px;
+  color: #ccc;
+  position: relative;
+  padding-top: 10px;
+  text-align: center;
+  flex: 1;
+}
+.step-dot::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #e0e0e0;
+}
+.step-dot.done { color: #999; }
+.step-dot.done::before { background: #f0883e; }
+.step-dot.active { color: #f0883e; font-weight: 600; }
+.step-dot.active::before {
+  background: #f0883e;
+  box-shadow: 0 0 0 3px rgba(240, 136, 62, 0.2);
+  width: 10px;
+  height: 10px;
+}
+
 .stats-row { margin-bottom: 16px; }
 .stat-card { text-align: center; margin-bottom: 12px; }
 .list-card { margin-bottom: 16px; }
@@ -187,5 +265,7 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
   .mobile-list { display: block; }
   .desktop-table { display: none; }
   .trigger-btn { min-width: 110px; height: 36px; font-size: 14px; }
+  .progress-steps { flex-wrap: wrap; }
+  .step-dot { font-size: 11px; }
 }
 </style>
