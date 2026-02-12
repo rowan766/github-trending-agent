@@ -2,6 +2,7 @@ import aiosqlite
 import json
 import os
 from datetime import date, timedelta
+from app.auth import hash_password
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "trending.db")
 
@@ -17,10 +18,30 @@ DEFAULT_TECH_STACK = [
     {"name": "Dify", "weight": 7, "enabled": True, "preset": True},
 ]
 
+PRESET_TECH_TYPES = [
+    "AI/LLM", "Vue.js", "React", "Angular", "Svelte", "Next.js", "Nuxt.js",
+    "FastAPI", "Django", "Flask", "Express.js", "NestJS", "Spring Boot",
+    "Three.js", "Cesium", "Docker", "Kubernetes", "n8n", "Dify",
+    "TypeScript", "Python", "Go", "Rust", "Java",
+    "PostgreSQL", "MongoDB", "Redis", "Elasticsearch",
+    "WebAssembly", "GraphQL", "gRPC", "Terraform", "CI/CD",
+]
+
 
 async def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                email TEXT DEFAULT '',
+                role TEXT DEFAULT 'user',
+                tech_stack TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS pushed_repos (
                 repo_name TEXT PRIMARY KEY,
@@ -45,15 +66,106 @@ async def init_db():
                 value TEXT
             )
         """)
+        # Init default admin
+        cursor = await db.execute("SELECT 1 FROM users WHERE username = 'admin'")
+        if not await cursor.fetchone():
+            await db.execute(
+                "INSERT INTO users (username, password, role, tech_stack) VALUES (?, ?, ?, ?)",
+                ("admin", hash_password("admin123"), "admin", json.dumps(DEFAULT_TECH_STACK, ensure_ascii=False))
+            )
+        # Init default config
         cursor = await db.execute("SELECT 1 FROM config WHERE key = 'tech_stack'")
         if not await cursor.fetchone():
             await db.execute(
                 "INSERT INTO config (key, value) VALUES (?, ?)",
                 ("tech_stack", json.dumps(DEFAULT_TECH_STACK, ensure_ascii=False))
             )
+        # Init preset types
+        cursor = await db.execute("SELECT 1 FROM config WHERE key = 'preset_types'")
+        if not await cursor.fetchone():
+            await db.execute(
+                "INSERT INTO config (key, value) VALUES (?, ?)",
+                ("preset_types", json.dumps(PRESET_TECH_TYPES, ensure_ascii=False))
+            )
         await db.commit()
 
 
+# ---- Users ----
+async def create_user(username: str, password: str, email: str = "", role: str = "user") -> dict:
+    hashed = hash_password(password)
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute(
+                "INSERT INTO users (username, password, email, role, tech_stack) VALUES (?, ?, ?, ?, ?)",
+                (username, hashed, email, role, json.dumps(DEFAULT_TECH_STACK, ensure_ascii=False))
+            )
+            await db.commit()
+            cursor = await db.execute("SELECT id, username, email, role, created_at FROM users WHERE username = ?", (username,))
+            row = await cursor.fetchone()
+            return {"id": row[0], "username": row[1], "email": row[2], "role": row[3], "created_at": row[4]}
+        except aiosqlite.IntegrityError:
+            return None
+
+
+async def get_user_by_username(username: str) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM users WHERE username = ?", (username,))
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def get_user_by_id(user_id: int) -> dict | None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT id, username, email, role, tech_stack, created_at FROM users WHERE id = ?", (user_id,))
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def list_users() -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT id, username, email, role, created_at FROM users ORDER BY id")
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def update_user(user_id: int, **kwargs) -> bool:
+    allowed = {"username", "email", "role", "password"}
+    fields = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
+    if "password" in fields:
+        fields["password"] = hash_password(fields["password"])
+    if not fields:
+        return False
+    set_clause = ", ".join(f"{k} = ?" for k in fields)
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(f"UPDATE users SET {set_clause} WHERE id = ?", (*fields.values(), user_id))
+        await db.commit()
+    return True
+
+
+async def delete_user(user_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("DELETE FROM users WHERE id = ? AND role != 'admin'", (user_id,))
+        await db.commit()
+        return cursor.rowcount > 0
+
+
+# ---- User Tech Stack ----
+async def get_user_tech_stack(user_id: int) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("SELECT tech_stack FROM users WHERE id = ?", (user_id,))
+        row = await cursor.fetchone()
+        return json.loads(row[0]) if row and row[0] else DEFAULT_TECH_STACK
+
+
+async def set_user_tech_stack(user_id: int, stack: list[dict]):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE users SET tech_stack = ? WHERE id = ?", (json.dumps(stack, ensure_ascii=False), user_id))
+        await db.commit()
+
+
+# ---- Config ----
 async def get_config(key: str):
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("SELECT value FROM config WHERE key = ?", (key,))
@@ -63,10 +175,7 @@ async def get_config(key: str):
 
 async def set_config(key: str, value):
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
-            (key, json.dumps(value, ensure_ascii=False))
-        )
+        await db.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key, json.dumps(value, ensure_ascii=False)))
         await db.commit()
 
 
@@ -78,13 +187,19 @@ async def set_tech_stack(stack: list[dict]):
     await set_config("tech_stack", stack)
 
 
+async def get_preset_types() -> list[str]:
+    return await get_config("preset_types") or PRESET_TECH_TYPES
+
+
+async def set_preset_types(types: list[str]):
+    await set_config("preset_types", types)
+
+
+# ---- Dedup ----
 async def is_recently_pushed(repo_name: str, dedup_days: int = 7) -> bool:
     async with aiosqlite.connect(DB_PATH) as db:
         cutoff = (date.today() - timedelta(days=dedup_days)).isoformat()
-        cursor = await db.execute(
-            "SELECT 1 FROM pushed_repos WHERE repo_name = ? AND last_pushed >= ?",
-            (repo_name, cutoff)
-        )
+        cursor = await db.execute("SELECT 1 FROM pushed_repos WHERE repo_name = ? AND last_pushed >= ?", (repo_name, cutoff))
         return await cursor.fetchone() is not None
 
 
@@ -95,12 +210,12 @@ async def mark_pushed(repo_names: list[str]):
             await db.execute("""
                 INSERT INTO pushed_repos (repo_name, first_seen, last_pushed, push_count)
                 VALUES (?, ?, ?, 1)
-                ON CONFLICT(repo_name) DO UPDATE SET
-                    last_pushed = ?, push_count = push_count + 1
+                ON CONFLICT(repo_name) DO UPDATE SET last_pushed = ?, push_count = push_count + 1
             """, (name, today, today, today))
         await db.commit()
 
 
+# ---- Reports ----
 async def save_report(report_html: str, report_json: str, project_count: int):
     today = date.today().isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
@@ -131,7 +246,6 @@ async def get_report_history(limit: int = 50) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT id, report_date, project_count, created_at FROM daily_reports ORDER BY report_date DESC LIMIT ?",
-            (limit,)
+            "SELECT id, report_date, project_count, created_at FROM daily_reports ORDER BY report_date DESC LIMIT ?", (limit,)
         )
         return [dict(row) for row in await cursor.fetchall()]
