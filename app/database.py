@@ -38,6 +38,7 @@ async def init_db():
                 password TEXT NOT NULL,
                 email TEXT DEFAULT '',
                 role TEXT DEFAULT 'user',
+                receive_email INTEGER DEFAULT 1,
                 tech_stack TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -66,27 +67,20 @@ async def init_db():
                 value TEXT
             )
         """)
-        # Init default admin
         cursor = await db.execute("SELECT 1 FROM users WHERE username = 'admin'")
         if not await cursor.fetchone():
             await db.execute(
                 "INSERT INTO users (username, password, role, tech_stack) VALUES (?, ?, ?, ?)",
                 ("admin", hash_password("admin123"), "admin", json.dumps(DEFAULT_TECH_STACK, ensure_ascii=False))
             )
-        # Init default config
         cursor = await db.execute("SELECT 1 FROM config WHERE key = 'tech_stack'")
         if not await cursor.fetchone():
-            await db.execute(
-                "INSERT INTO config (key, value) VALUES (?, ?)",
-                ("tech_stack", json.dumps(DEFAULT_TECH_STACK, ensure_ascii=False))
-            )
-        # Init preset types
+            await db.execute("INSERT INTO config (key, value) VALUES (?, ?)",
+                ("tech_stack", json.dumps(DEFAULT_TECH_STACK, ensure_ascii=False)))
         cursor = await db.execute("SELECT 1 FROM config WHERE key = 'preset_types'")
         if not await cursor.fetchone():
-            await db.execute(
-                "INSERT INTO config (key, value) VALUES (?, ?)",
-                ("preset_types", json.dumps(PRESET_TECH_TYPES, ensure_ascii=False))
-            )
+            await db.execute("INSERT INTO config (key, value) VALUES (?, ?)",
+                ("preset_types", json.dumps(PRESET_TECH_TYPES, ensure_ascii=False)))
         await db.commit()
 
 
@@ -118,7 +112,7 @@ async def get_user_by_username(username: str) -> dict | None:
 async def get_user_by_id(user_id: int) -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT id, username, email, role, tech_stack, created_at FROM users WHERE id = ?", (user_id,))
+        cursor = await db.execute("SELECT id, username, email, role, receive_email, tech_stack, created_at FROM users WHERE id = ?", (user_id,))
         row = await cursor.fetchone()
         return dict(row) if row else None
 
@@ -126,12 +120,12 @@ async def get_user_by_id(user_id: int) -> dict | None:
 async def list_users() -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute("SELECT id, username, email, role, created_at FROM users ORDER BY id")
+        cursor = await db.execute("SELECT id, username, email, role, receive_email, created_at FROM users ORDER BY id")
         return [dict(row) for row in await cursor.fetchall()]
 
 
 async def update_user(user_id: int, **kwargs) -> bool:
-    allowed = {"username", "email", "role", "password"}
+    allowed = {"username", "email", "role", "password", "receive_email"}
     fields = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
     if "password" in fields:
         fields["password"] = hash_password(fields["password"])
@@ -149,6 +143,16 @@ async def delete_user(user_id: int) -> bool:
         cursor = await db.execute("DELETE FROM users WHERE id = ? AND role != 'admin'", (user_id,))
         await db.commit()
         return cursor.rowcount > 0
+
+
+async def get_all_user_emails() -> list[str]:
+    """获取所有开启了邮件接收且填了邮箱的用户邮箱"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT email FROM users WHERE email != '' AND receive_email = 1"
+        )
+        rows = await cursor.fetchall()
+        return [row[0] for row in rows]
 
 
 # ---- User Tech Stack ----
@@ -221,8 +225,7 @@ async def save_report(report_html: str, report_json: str, project_count: int):
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             "INSERT OR REPLACE INTO daily_reports (report_date, report_html, report_json, project_count) VALUES (?, ?, ?, ?)",
-            (today, report_html, report_json, project_count)
-        )
+            (today, report_html, report_json, project_count))
         await db.commit()
 
 
@@ -246,6 +249,5 @@ async def get_report_history(limit: int = 50) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT id, report_date, project_count, created_at FROM daily_reports ORDER BY report_date DESC LIMIT ?", (limit,)
-        )
+            "SELECT id, report_date, project_count, created_at FROM daily_reports ORDER BY report_date DESC LIMIT ?", (limit,))
         return [dict(row) for row in await cursor.fetchall()]

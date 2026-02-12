@@ -69,6 +69,11 @@ class RegisterReq(BaseModel):
     password: str
     email: str = ""
 
+class ProfileUpdateReq(BaseModel):
+    email: Optional[str] = None
+    receive_email: Optional[bool] = None
+    password: Optional[str] = None
+
 
 @app.post("/api/auth/login")
 async def login(req: LoginReq):
@@ -76,7 +81,10 @@ async def login(req: LoginReq):
     if not user or not verify_password(req.password, user["password"]):
         raise HTTPException(401, "Wrong username or password")
     token = create_token(user["id"], user["username"], user["role"])
-    return {"token": token, "user": {"id": user["id"], "username": user["username"], "role": user["role"], "email": user.get("email", "")}}
+    return {"token": token, "user": {
+        "id": user["id"], "username": user["username"], "role": user["role"],
+        "email": user.get("email", ""), "receive_email": bool(user.get("receive_email", 1)),
+    }}
 
 
 @app.post("/api/auth/register")
@@ -95,6 +103,26 @@ async def me(user: dict = Depends(get_current_user)):
     info = await get_user_by_id(int(user["sub"]))
     if not info:
         raise HTTPException(404)
+    info.pop("tech_stack", None)
+    return info
+
+
+@app.put("/api/auth/profile")
+async def update_profile(req: ProfileUpdateReq, user: dict = Depends(get_current_user)):
+    user_id = int(user["sub"])
+    fields = {}
+    if req.email is not None:
+        fields["email"] = req.email
+    if req.receive_email is not None:
+        fields["receive_email"] = 1 if req.receive_email else 0
+    if req.password is not None:
+        if len(req.password) < 6:
+            raise HTTPException(400, "Password min 6 chars")
+        fields["password"] = req.password
+    if not fields:
+        raise HTTPException(400, "No fields to update")
+    await update_user(user_id, **fields)
+    info = await get_user_by_id(user_id)
     info.pop("tech_stack", None)
     return info
 

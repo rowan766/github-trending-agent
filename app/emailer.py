@@ -4,21 +4,33 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import date
 from app.config import get_settings
+from app.database import get_all_user_emails
 
 logger = logging.getLogger(__name__)
 
 
 async def send_report_email(html_content: str) -> bool:
     settings = get_settings()
-    if not all([settings.smtp_user, settings.smtp_password, settings.email_to]):
-        logger.warning("Email not configured, skipping")
+    if not all([settings.smtp_user, settings.smtp_password]):
+        logger.warning("SMTP not configured, skipping")
         return False
 
-    # 支持逗号分隔多个收件人
-    recipients = [e.strip() for e in settings.email_to.split(",") if e.strip()]
+    # 合并 .env 配置的收件人 + 数据库中用户邮箱（去重）
+    recipients = set()
+    if settings.email_to:
+        for e in settings.email_to.split(","):
+            if e.strip():
+                recipients.add(e.strip())
+    user_emails = await get_all_user_emails()
+    recipients.update(user_emails)
 
+    if not recipients:
+        logger.warning("No recipients, skipping")
+        return False
+
+    recipients = list(recipients)
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"🔥 GitHub Trending 日报 — {date.today()}"
+    msg["Subject"] = f"\U0001f525 GitHub Trending \u65e5\u62a5 \u2014 {date.today()}"
     msg["From"] = settings.smtp_user
     msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(html_content, "html", "utf-8"))
