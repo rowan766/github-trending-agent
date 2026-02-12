@@ -55,18 +55,14 @@
             <el-icon :size="40"><Iphone /></el-icon>
             <span>微信支付</span>
           </div>
-          <p>微信扫码支付</p>
-          <el-text type="info" size="small">请将 wechat-pay.png 放到 app/static/img/ 目录</el-text>
-          <img src="/api/static/img/wechat-pay.png" class="qr-img" @error="onImgError" />
+          <img src="../../static/images/wechat-pay.png" class="qr-img" @error="onImgError" />
         </div>
         <div class="donate-qr-item">
           <div class="qr-placeholder alipay">
             <el-icon :size="40"><Wallet /></el-icon>
             <span>支付宝</span>
           </div>
-          <p>支付宝扫码支付</p>
-          <el-text type="info" size="small">请将 alipay-pay.png 放到 app/static/img/ 目录</el-text>
-          <img src="/api/static/img/alipay-pay.png" class="qr-img" @error="onImgError" />
+          <img src="../../static/images/alipay-pay.png" class="qr-img" @error="onImgError" />
         </div>
       </div>
     </el-card>
@@ -127,7 +123,7 @@ onMounted(fetchList)
   font-size: 13px; color: #333; display: flex; align-items: flex-start; gap: 6px;
 }
 
-.donate-desc { font-size: 14px; color: #666; margin: 0 0 16px; }
+.donate-desc { font-size: 18px; color: #666; margin: 0 0 16px;}
 .donate-qr-row { display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; }
 .donate-qr-item { text-align: center; }
 .donate-qr-item p { font-size: 14px; font-weight: 500; margin: 8px 0 2px; }
