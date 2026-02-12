@@ -1,7 +1,7 @@
 import json
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends, Body
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -171,7 +171,8 @@ async def get_types(_: dict = Depends(require_admin)):
     return await get_preset_types()
 
 @app.put("/api/admin/preset-types")
-async def update_types(types: list[str] = Body(...), _: dict = Depends(require_admin)):
+async def update_types(request: Request, _: dict = Depends(require_admin)):
+    types = await request.json()
     await set_preset_types(types)
     return {"status": "ok"}
 
@@ -211,7 +212,8 @@ async def get_stack(user: dict = Depends(get_current_user)):
     return await get_user_tech_stack(int(user["sub"]))
 
 @app.put("/api/config/tech-stack")
-async def update_stack(items: list = Body(...), user: dict = Depends(get_current_user)):
+async def update_stack(request: Request, user: dict = Depends(get_current_user)):
+    items = await request.json()
     await set_user_tech_stack(int(user["sub"]), items)
     return {"status": "ok"}
 
