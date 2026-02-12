@@ -14,7 +14,8 @@ from app.database import (
     init_db, get_latest_report, get_report_history, get_report_by_id,
     get_tech_stack, set_tech_stack, get_user_tech_stack, set_user_tech_stack,
     create_user, get_user_by_username, get_user_by_id, list_users, update_user, delete_user,
-    get_preset_types, set_preset_types,
+    get_preset_types, set_preset_types, has_today_report,
+    create_feedback, list_feedback, reply_feedback,
 )
 from app.pipeline import run_pipeline, pipeline_progress
 import os
@@ -61,7 +62,6 @@ app.add_middleware(
 
 
 # ---- Auth ----
-
 class LoginReq(BaseModel):
     username: str
     password: str
@@ -88,7 +88,6 @@ async def login(req: LoginReq):
         "email": user.get("email", ""), "receive_email": bool(user.get("receive_email", 1)),
     }}
 
-
 @app.post("/api/auth/register")
 async def register(req: RegisterReq):
     if len(req.username) < 2 or len(req.password) < 6:
@@ -99,7 +98,6 @@ async def register(req: RegisterReq):
     token = create_token(user["id"], user["username"], user["role"])
     return {"token": token, "user": user}
 
-
 @app.get("/api/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     info = await get_user_by_id(int(user["sub"]))
@@ -107,7 +105,6 @@ async def me(user: dict = Depends(get_current_user)):
         raise HTTPException(404)
     info.pop("tech_stack", None)
     return info
-
 
 @app.put("/api/auth/profile")
 async def update_profile(req: ProfileUpdateReq, user: dict = Depends(get_current_user)):
@@ -130,7 +127,6 @@ async def update_profile(req: ProfileUpdateReq, user: dict = Depends(get_current
 
 
 # ---- User Management (admin) ----
-
 class UserUpdateReq(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
@@ -143,11 +139,9 @@ class AdminCreateUserReq(BaseModel):
     email: str = ""
     role: str = "user"
 
-
 @app.get("/api/admin/users")
 async def admin_list_users(_: dict = Depends(require_admin)):
     return await list_users()
-
 
 @app.post("/api/admin/users")
 async def admin_create_user(req: AdminCreateUserReq, _: dict = Depends(require_admin)):
@@ -156,14 +150,12 @@ async def admin_create_user(req: AdminCreateUserReq, _: dict = Depends(require_a
         raise HTTPException(400, "Username already exists")
     return user
 
-
 @app.put("/api/admin/users/{user_id}")
 async def admin_update_user(user_id: int, req: UserUpdateReq, _: dict = Depends(require_admin)):
     ok = await update_user(user_id, **req.model_dump(exclude_none=True))
     if not ok:
         raise HTTPException(400, "Update failed")
     return {"status": "ok"}
-
 
 @app.delete("/api/admin/users/{user_id}")
 async def admin_delete_user(user_id: int, _: dict = Depends(require_admin)):
@@ -174,11 +166,9 @@ async def admin_delete_user(user_id: int, _: dict = Depends(require_admin)):
 
 
 # ---- Preset Types (admin) ----
-
 @app.get("/api/admin/preset-types")
 async def get_types(_: dict = Depends(require_admin)):
     return await get_preset_types()
-
 
 @app.put("/api/admin/preset-types")
 async def update_types(types: list[str], _: dict = Depends(require_admin)):
@@ -186,18 +176,44 @@ async def update_types(types: list[str], _: dict = Depends(require_admin)):
     return {"status": "ok"}
 
 
-# ---- Tech Stack (per user) ----
+# ---- Feedback ----
+class FeedbackReq(BaseModel):
+    type: str = "suggestion"
+    content: str
 
+class ReplyReq(BaseModel):
+    reply: str
+
+@app.post("/api/feedback")
+async def submit_feedback(req: FeedbackReq, user: dict = Depends(get_current_user)):
+    if not req.content.strip():
+        raise HTTPException(400, "Content required")
+    fb = await create_feedback(int(user["sub"]), user["username"], req.type, req.content.strip())
+    return fb
+
+@app.get("/api/feedback")
+async def get_my_feedback(user: dict = Depends(get_current_user)):
+    return await list_feedback(int(user["sub"]))
+
+@app.get("/api/admin/feedback")
+async def admin_get_feedback(_: dict = Depends(require_admin)):
+    return await list_feedback()
+
+@app.put("/api/admin/feedback/{fb_id}/reply")
+async def admin_reply_feedback(fb_id: int, req: ReplyReq, _: dict = Depends(require_admin)):
+    await reply_feedback(fb_id, req.reply)
+    return {"status": "ok"}
+
+
+# ---- Tech Stack (per user) ----
 @app.get("/api/config/tech-stack")
 async def get_stack(user: dict = Depends(get_current_user)):
     return await get_user_tech_stack(int(user["sub"]))
-
 
 @app.put("/api/config/tech-stack")
 async def update_stack(items: list, user: dict = Depends(get_current_user)):
     await set_user_tech_stack(int(user["sub"]), items)
     return {"status": "ok"}
-
 
 @app.get("/api/config/preset-types")
 async def get_available_types(user: dict = Depends(get_current_user)):
@@ -205,19 +221,14 @@ async def get_available_types(user: dict = Depends(get_current_user)):
 
 
 # ---- Pipeline ----
-
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
 
-
 @app.get("/api/status")
 async def status(user: dict = Depends(get_current_user)):
-    return {
-        **pipeline_status,
-        "progress": pipeline_progress.to_dict(),
-    }
-
+    today_pushed = await has_today_report()
+    return {**pipeline_status, "progress": pipeline_progress.to_dict(), "today_pushed": today_pushed}
 
 @app.post("/api/trigger")
 async def trigger(bg: BackgroundTasks, user: dict = Depends(get_current_user)):
@@ -228,11 +239,9 @@ async def trigger(bg: BackgroundTasks, user: dict = Depends(get_current_user)):
 
 
 # ---- Reports ----
-
 @app.get("/api/reports")
 async def reports(limit: int = 50, user: dict = Depends(get_current_user)):
     return await get_report_history(limit)
-
 
 @app.get("/api/reports/{report_id}")
 async def report_detail(report_id: int, user: dict = Depends(get_current_user)):
@@ -243,7 +252,6 @@ async def report_detail(report_id: int, user: dict = Depends(get_current_user)):
     if result.get("report_json"):
         result["projects"] = json.loads(result["report_json"])
     return result
-
 
 @app.get("/api/reports/{report_id}/html", response_class=HTMLResponse)
 async def report_html(report_id: int):
@@ -269,7 +277,6 @@ async def latest():
     if not report:
         return HTMLResponse("<h1>\u6682\u65e0\u62a5\u544a</h1>", status_code=404)
     return HTMLResponse(report["report_html"])
-
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(static_dir):

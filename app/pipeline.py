@@ -52,7 +52,6 @@ pipeline_progress = PipelineProgress()
 
 
 def _serialize_analyzed(analyzed_by_type: dict) -> str:
-    """\u5e8f\u5217\u5316\u5404\u7ef4\u5ea6\u7684\u5206\u6790\u7ed3\u679c"""
     result = {}
     for trending_type, analyzed_list in analyzed_by_type.items():
         items = []
@@ -77,8 +76,7 @@ async def run_pipeline() -> dict:
     settings = get_settings()
     languages = [l.strip() for l in settings.trending_languages.split(",")]
 
-    # Step 1: Scrape daily/weekly/monthly
-    pipeline_progress.set_step("scraping", f"daily + weekly + monthly")
+    pipeline_progress.set_step("scraping", "daily + weekly + monthly")
     logger.info("Step 1: Scraping (daily/weekly/monthly)...")
     multi = await fetch_trending_multi(languages)
     total_scraped = sum(len(v) for v in multi.values())
@@ -86,7 +84,6 @@ async def run_pipeline() -> dict:
         pipeline_progress.update(100, "done", "\u65e0\u6570\u636e")
         return {"status": "no_data"}
 
-    # Step 2: Dedup each list independently
     pipeline_progress.set_step("dedup", f"\u5171 {total_scraped} \u4e2a\u9879\u76ee")
     logger.info("Step 2: Dedup...")
     fresh_by_type = {}
@@ -100,7 +97,6 @@ async def run_pipeline() -> dict:
         pipeline_progress.update(100, "done", "\u5168\u90e8\u5df2\u63a8\u9001")
         return {"status": "all_deduped"}
 
-    # Step 3: Enrich — merge unique repos to avoid duplicate API calls
     all_unique = {}
     for t, repos in fresh_by_type.items():
         for r in repos:
@@ -111,38 +107,29 @@ async def run_pipeline() -> dict:
     logger.info(f"Step 3: Enriching {len(unique_list)} unique repos...")
     enriched_list = await enrich_repos(unique_list, settings.github_token)
     enriched_map = {r.name: r for r in enriched_list}
-
-    # Update fresh_by_type with enriched data
     for t in fresh_by_type:
         fresh_by_type[t] = [enriched_map[r.name] for r in fresh_by_type[t] if r.name in enriched_map]
 
-    # Step 4: Analyze — analyze all unique repos once
     pipeline_progress.set_step("analyzing", f"{len(enriched_list)} \u4e2a\u9879\u76ee")
     logger.info("Step 4: Analyzing...")
     tech_stack = await get_tech_stack()
     analyzed_all = await analyze_repos(enriched_list, tech_stack)
     analyzed_map = {a.repo.name: a for a in analyzed_all}
 
-    # Split back by type
     analyzed_by_type = {}
     total_pushed = 0
     for t in fresh_by_type:
         analyzed_by_type[t] = [analyzed_map[r.name] for r in fresh_by_type[t] if r.name in analyzed_map]
         total_pushed += len(analyzed_by_type[t])
 
-    # Step 5: Report
     pipeline_progress.set_step("report")
     logger.info("Step 5: Report...")
-    # Generate email HTML from daily list (primary), include all for web
-    primary = analyzed_by_type.get("daily", []) or analyzed_all[:settings.max_projects]
-    html = generate_report(primary, total_scraped, total_scraped - total_fresh)
+    html = generate_report(analyzed_by_type, total_scraped, total_scraped - total_fresh)
     report_json = _serialize_analyzed(analyzed_by_type)
     await save_report(html, report_json, total_pushed)
-
     all_pushed_names = list({a.repo.name for al in analyzed_by_type.values() for a in al})
     await mark_pushed(all_pushed_names)
 
-    # Step 6: Email
     pipeline_progress.set_step("email")
     logger.info("Step 6: Email...")
     email_sent = False
