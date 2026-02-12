@@ -25,7 +25,7 @@
               <el-input v-model="regForm.username" placeholder="用户名（至少2位）" :prefix-icon="User" size="large" />
             </el-form-item>
             <el-form-item>
-              <el-input v-model="regForm.email" placeholder="邮箱（可选）" :prefix-icon="Message" size="large" />
+              <el-input v-model="regForm.email" placeholder="邮箱（可选，用于接收日报推送）" :prefix-icon="Message" size="large" />
             </el-form-item>
             <el-form-item>
               <el-input v-model="regForm.password" type="password" placeholder="密码（至少6位）" :prefix-icon="Lock" size="large" show-password />
@@ -34,6 +34,8 @@
           </el-form>
         </el-tab-pane>
       </el-tabs>
+
+      <p class="login-hint">默认管理员: admin / admin123</p>
     </div>
   </div>
 </template>
@@ -84,10 +86,8 @@ async function handleRegister() {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* background: linear-gradient(135deg, #1d1e2c 0%, #2d2f45 100%); */
+  background: linear-gradient(135deg, #1d1e2c 0%, #2d2f45 100%);
   padding: 20px;
-  background: url('../../static/images/login-bg.png') no-repeat center center fixed;
-  background-size: cover;
 }
 .login-card {
   background: #fff;

@@ -64,7 +64,7 @@
   </el-container>
 
   <!-- Profile dialog -->
-  <el-dialog v-model="showProfile" title="个人中心" width="460px" destroy-on-close>
+  <el-dialog v-model="showProfile" title="个人中心" width="500px" destroy-on-close>
     <el-form :model="profileForm" label-width="100px">
       <el-form-item label="用户名">
         <el-input :value="userStore.user?.username" disabled />
@@ -74,12 +74,20 @@
           {{ userStore.isAdmin ? '管理员' : '普通用户' }}
         </el-tag>
       </el-form-item>
-      <el-form-item label="接收邮箱">
-        <el-input v-model="profileForm.email" placeholder="填写邮箱以接收日报推送" />
+      <el-form-item label="主邮箱" required>
+        <el-input v-model="profileForm.emails[0]" placeholder="填写主邮箱以接收日报推送" />
+      </el-form-item>
+      <el-form-item label="备用邮箱 1">
+        <el-input v-model="profileForm.emails[1]" placeholder="可选，填写第二个接收邮箱" />
+      </el-form-item>
+      <el-form-item label="备用邮箱 2">
+        <el-input v-model="profileForm.emails[2]" placeholder="可选，填写第三个接收邮箱" />
       </el-form-item>
       <el-form-item label="邮件推送">
-        <el-switch v-model="profileForm.receive_email" active-text="开启" inactive-text="关闭" />
-        <el-text type="info" style="margin-left: 12px; font-size: 12px;">开启后每日日报将发送到你的邮箱</el-text>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <el-switch v-model="profileForm.receive_email" active-text="开启" inactive-text="关闭" />
+          <el-text type="info" size="small">开启后每日日报发送到以上邮箱</el-text>
+        </div>
       </el-form-item>
       <el-form-item label="修改密码">
         <el-input v-model="profileForm.password" type="password" placeholder="留空不修改" show-password />
@@ -93,7 +101,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from './stores/user'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -104,11 +112,17 @@ const userStore = useUserStore()
 const collapsed = ref(false)
 const showProfile = ref(false)
 const saving = ref(false)
-const profileForm = reactive({ email: '', receive_email: true, password: '' })
+const profileForm = reactive({ emails: ['', '', ''], receive_email: true, password: '' })
+
+function parseEmails(emailStr) {
+  const parts = (emailStr || '').split(',').map(e => e.trim())
+  return [parts[0] || '', parts[1] || '', parts[2] || '']
+}
 
 function handleCmd(cmd) {
   if (cmd === 'profile') {
-    profileForm.email = userStore.user?.email || ''
+    const emails = parseEmails(userStore.user?.email)
+    profileForm.emails = emails
     profileForm.receive_email = userStore.user?.receive_email !== false && userStore.user?.receive_email !== 0
     profileForm.password = ''
     showProfile.value = true
@@ -121,9 +135,14 @@ function handleCmd(cmd) {
 }
 
 async function handleSaveProfile() {
+  const validEmails = profileForm.emails.filter(e => e.trim())
+  if (profileForm.receive_email && validEmails.length === 0) {
+    return ElMessage.warning('开启邮件推送需要至少填写一个邮箱')
+  }
   saving.value = true
   try {
-    const data = { email: profileForm.email, receive_email: profileForm.receive_email }
+    const emailStr = validEmails.join(',')
+    const data = { email: emailStr, receive_email: profileForm.receive_email }
     if (profileForm.password) data.password = profileForm.password
     await userStore.updateProfile(data)
     ElMessage.success('保存成功')
@@ -132,6 +151,10 @@ async function handleSaveProfile() {
     ElMessage.error(e.response?.data?.detail || '保存失败')
   } finally { saving.value = false }
 }
+
+// 全局暴露给子组件调用
+const openProfile = () => handleCmd('profile')
+defineExpose({ openProfile })
 </script>
 
 <style>

@@ -7,10 +7,13 @@
           <el-text type="info">管理和查看每日 GitHub Trending 推送</el-text>
         </div>
         <div class="action-btns">
-          <el-tag v-if="store.pipelineStatus.running" type="warning" effect="dark">
+          <el-tag v-if="reportStore.pipelineStatus.running" type="warning" effect="dark" class="running-tag">
             <el-icon class="is-loading"><Loading /></el-icon> 正在运行
           </el-tag>
-          <el-button type="primary" :icon="Refresh" :loading="triggering" @click="handleTrigger">手动触发</el-button>
+          <el-button type="primary" size="large" :loading="triggering" @click="handleTrigger" class="trigger-btn">
+            <template #icon><el-icon><Promotion /></el-icon></template>
+            手动触发
+          </el-button>
         </div>
       </div>
     </el-card>
@@ -18,7 +21,7 @@
     <el-row :gutter="16" class="stats-row">
       <el-col :xs="24" :sm="8">
         <el-card shadow="never" class="stat-card">
-          <el-statistic title="总报告数" :value="store.list.length">
+          <el-statistic title="总报告数" :value="reportStore.list.length">
             <template #prefix><el-icon><Document /></el-icon></template>
           </el-statistic>
         </el-card>
@@ -43,10 +46,10 @@
       <template #header>
         <div class="card-header">
           <span>📋 推送记录</span>
-          <el-button text :icon="Refresh" @click="store.fetchList()">刷新</el-button>
+          <el-button text :icon="Refresh" @click="reportStore.fetchList()">刷新</el-button>
         </div>
       </template>
-      <el-table :data="store.list" stripe v-loading="store.loading" @row-click="goDetail" class="desktop-table">
+      <el-table :data="reportStore.list" stripe v-loading="reportStore.loading" @row-click="goDetail" class="desktop-table">
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="report_date" label="日期" width="140" />
         <el-table-column prop="project_count" label="项目数" width="100" align="center">
@@ -59,9 +62,8 @@
           </template>
         </el-table-column>
       </el-table>
-      <!-- Mobile list -->
       <div class="mobile-list">
-        <div v-for="item in store.list" :key="item.id" class="mobile-report-card" @click="goDetail(item)">
+        <div v-for="item in reportStore.list" :key="item.id" class="mobile-report-card" @click="goDetail(item)">
           <div class="mobile-report-top">
             <span class="mobile-report-date">{{ item.report_date }}</span>
             <el-tag size="small">{{ item.project_count }} 个项目</el-tag>
@@ -69,7 +71,7 @@
           <el-text type="info" size="small">{{ item.created_at }}</el-text>
         </div>
       </div>
-      <el-empty v-if="!store.loading && store.list.length === 0" description="暂无报告，点击上方手动触发" />
+      <el-empty v-if="!reportStore.loading && reportStore.list.length === 0" description="暂无报告，点击上方手动触发" />
     </el-card>
   </div>
 </template>
@@ -78,36 +80,61 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useReportStore } from '../stores/report'
-import { Refresh, Document, TrendCharts, Clock, Loading } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { useUserStore } from '../stores/user'
+import { Refresh, Document, TrendCharts, Clock, Loading, Promotion } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
-const store = useReportStore()
+const reportStore = useReportStore()
+const userStore = useUserStore()
 const triggering = ref(false)
 let pollTimer = null
 
-const latestCount = computed(() => store.list[0]?.project_count || 0)
+const latestCount = computed(() => reportStore.list[0]?.project_count || 0)
 const lastRunText = computed(() => {
-  const r = store.pipelineStatus.last_result
+  const r = reportStore.pipelineStatus.last_result
   return r?.status === 'success' ? `推送 ${r.pushed} 个` : '暂无'
 })
 
+function hasEmail() {
+  const email = userStore.user?.email || ''
+  return email.split(',').some(e => e.trim())
+}
+
 async function handleTrigger() {
+  // 校验邮箱
+  if (!hasEmail()) {
+    try {
+      await ElMessageBox.confirm(
+        '你还未配置接收邮箱，无法接收日报推送。\n是否前往个人中心配置邮箱？',
+        '提示',
+        { confirmButtonText: '去配置', cancelButtonText: '继续触发', type: 'warning', distinguishCancelAndClose: true }
+      )
+      // 点击"去配置" -> 打开个人中心
+      // 通过 event bus 触发 App.vue 的 profile dialog
+      window.dispatchEvent(new CustomEvent('open-profile'))
+      return
+    } catch (action) {
+      if (action === 'close') return
+      // 点击"继续触发" -> 继续执行
+    }
+  }
+
   triggering.value = true
   try {
-    const result = await store.trigger()
+    const result = await reportStore.trigger()
     if (result.status === 'already_running') ElMessage.warning('任务正在运行中')
-    else { ElMessage.success('已触发'); startPoll() }
+    else { ElMessage.success('已触发，请稍候...'); startPoll() }
   } catch { ElMessage.error('触发失败') }
   finally { triggering.value = false }
 }
 
 function startPoll() {
   pollTimer = setInterval(async () => {
-    await store.fetchStatus()
-    if (!store.pipelineStatus.running) {
+    await reportStore.fetchStatus()
+    if (!reportStore.pipelineStatus.running) {
       clearInterval(pollTimer); pollTimer = null
-      await store.fetchList()
+      await reportStore.fetchList()
       ElMessage.success('任务完成!')
     }
   }, 3000)
@@ -115,15 +142,36 @@ function startPoll() {
 
 function goDetail(row) { router.push(`/report/${row.id}`) }
 
-onMounted(() => { store.fetchList(); store.fetchStatus() })
+onMounted(() => {
+  reportStore.fetchList()
+  reportStore.fetchStatus()
+  userStore.fetchMe()
+})
 onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
 </script>
 
 <style scoped>
 .action-card { margin-bottom: 16px; }
-.action-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .action-bar h2 { margin-bottom: 4px; }
-.action-btns { display: flex; align-items: center; gap: 12px; }
+.action-btns {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.trigger-btn {
+  min-width: 130px;
+  height: 40px;
+  font-size: 15px;
+}
+.running-tag { height: 32px; line-height: 32px; }
 .stats-row { margin-bottom: 16px; }
 .stat-card { text-align: center; margin-bottom: 12px; }
 .list-card { margin-bottom: 16px; }
@@ -138,5 +186,6 @@ onUnmounted(() => { if (pollTimer) clearInterval(pollTimer) })
 @media (max-width: 768px) {
   .mobile-list { display: block; }
   .desktop-table { display: none; }
+  .trigger-btn { min-width: 110px; height: 36px; font-size: 14px; }
 }
 </style>
