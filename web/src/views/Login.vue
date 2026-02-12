@@ -34,8 +34,6 @@
           </el-form>
         </el-tab-pane>
       </el-tabs>
-
-      <p class="login-hint">默认管理员: admin / admin123</p>
     </div>
   </div>
 </template>
@@ -86,8 +84,10 @@ async function handleRegister() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1d1e2c 0%, #2d2f45 100%);
+  /* background: linear-gradient(135deg, #1d1e2c 0%, #2d2f45 100%); */
   padding: 20px;
+  background: url('../../static/images/login-bg.png') no-repeat center center fixed;
+  background-size: cover;
 }
 .login-card {
   background: #fff;
