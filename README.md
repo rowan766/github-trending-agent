@@ -39,6 +39,23 @@ docker compose up -d
 - `EMAIL_TO` — 收件邮箱
 - `USER_TECH_STACK` — 你的技术栈（用于个性化排序）
 
+## 启动项目
+
+    - 删除旧数据库（表结构有变化）
+        del data\trending.db
+
+    - 安装新依赖
+        .venv\Scripts\activate
+        pip install python-jose[cryptography] passlib[bcrypt] --break-system-packages
+
+    - 启动后端
+        uvicorn app.main:app --reload --port 8000
+
+     - 启动前端（另一个终端）
+        cd web
+        npm install
+        npm run dev
+
 ## License
 
 MIT
