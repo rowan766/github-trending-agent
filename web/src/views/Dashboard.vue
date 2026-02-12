@@ -18,7 +18,7 @@
       <div v-if="isRunning" class="progress-section">
         <div class="progress-header">
           <span class="progress-step">
-            <el-icon class="is-loading" style="vertical-align: -2px;"><Loading /></el-icon>
+            <el-icon class="is-loading" style="vertical-align:-2px"><Loading /></el-icon>
             {{ progress.message }}
           </span>
           <span class="progress-pct">{{ progress.percentage }}%</span>
@@ -107,13 +107,14 @@ let pollTimer = null
 
 const isRunning = computed(() => reportStore.pipelineStatus.running)
 const progress = computed(() => reportStore.pipelineStatus.progress || { percentage: 0, step: 'idle', message: '等待中' })
+const todayPushed = computed(() => reportStore.pipelineStatus.today_pushed)
 
 const stepList = [
-  { key: 'scraping', label: '抓取', pct: 15 },
-  { key: 'dedup', label: '去重', pct: 25 },
-  { key: 'enriching', label: '详情', pct: 50 },
-  { key: 'analyzing', label: 'AI分析', pct: 75 },
-  { key: 'report', label: '报告', pct: 90 },
+  { key: 'scraping', label: '抓取', pct: 10 },
+  { key: 'dedup', label: '去重', pct: 20 },
+  { key: 'enriching', label: '详情', pct: 45 },
+  { key: 'analyzing', label: 'AI分析', pct: 70 },
+  { key: 'report', label: '报告', pct: 88 },
   { key: 'email', label: '邮件', pct: 95 },
 ]
 
@@ -129,6 +130,7 @@ function hasEmail() {
 }
 
 async function handleTrigger() {
+  // 校验邮箱
   if (!hasEmail()) {
     try {
       await ElMessageBox.confirm(
@@ -140,6 +142,19 @@ async function handleTrigger() {
       return
     } catch (action) {
       if (action === 'close') return
+    }
+  }
+
+  // 校验今日是否已推送
+  if (todayPushed.value) {
+    try {
+      await ElMessageBox.confirm(
+        '今日已经推送过了，再次触发会覆盖今日报告并重新调用 AI 接口。\n确定要重新触发吗？',
+        '今日已推送',
+        { confirmButtonText: '重新触发', cancelButtonText: '取消', type: 'warning' }
+      )
+    } catch {
+      return
     }
   }
 
@@ -170,7 +185,6 @@ onMounted(() => {
   reportStore.fetchList()
   reportStore.fetchStatus()
   userStore.fetchMe()
-  // 如果当前正在运行，自动开始轮询
   if (reportStore.pipelineStatus.running) startPoll()
 })
 onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } })
@@ -178,89 +192,30 @@ onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null 
 
 <style scoped>
 .action-card { margin-bottom: 16px; }
-.action-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-}
+.action-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
 .action-bar h2 { margin-bottom: 4px; }
 .action-btns { flex-shrink: 0; }
-.trigger-btn {
-  min-width: 130px;
-  height: 40px;
-  font-size: 15px;
-}
-
-/* Progress */
-.progress-section {
-  margin-top: 18px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
-}
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.progress-step {
-  font-size: 14px;
-  color: #333;
-  font-weight: 500;
-}
-.progress-pct {
-  font-size: 14px;
-  color: #f0883e;
-  font-weight: 600;
-}
-.progress-steps {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-  gap: 4px;
-}
-.step-dot {
-  font-size: 12px;
-  color: #ccc;
-  position: relative;
-  padding-top: 10px;
-  text-align: center;
-  flex: 1;
-}
-.step-dot::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #e0e0e0;
-}
+.trigger-btn { min-width: 130px; height: 40px; font-size: 15px; }
+.progress-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid #f0f0f0; }
+.progress-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.progress-step { font-size: 14px; color: #333; font-weight: 500; }
+.progress-pct { font-size: 14px; color: #f0883e; font-weight: 600; }
+.progress-steps { display: flex; justify-content: space-between; margin-top: 10px; gap: 4px; }
+.step-dot { font-size: 12px; color: #ccc; position: relative; padding-top: 10px; text-align: center; flex: 1; }
+.step-dot::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 8px; height: 8px; border-radius: 50%; background: #e0e0e0; }
 .step-dot.done { color: #999; }
 .step-dot.done::before { background: #f0883e; }
 .step-dot.active { color: #f0883e; font-weight: 600; }
-.step-dot.active::before {
-  background: #f0883e;
-  box-shadow: 0 0 0 3px rgba(240, 136, 62, 0.2);
-  width: 10px;
-  height: 10px;
-}
-
+.step-dot.active::before { background: #f0883e; box-shadow: 0 0 0 3px rgba(240,136,62,0.2); width: 10px; height: 10px; }
 .stats-row { margin-bottom: 16px; }
 .stat-card { text-align: center; margin-bottom: 12px; }
 .list-card { margin-bottom: 16px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .el-table { cursor: pointer; }
-
 .mobile-list { display: none; }
 .mobile-report-card { padding: 14px 0; border-bottom: 1px solid #eee; cursor: pointer; }
 .mobile-report-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .mobile-report-date { font-weight: 600; font-size: 15px; }
-
 @media (max-width: 768px) {
   .mobile-list { display: block; }
   .desktop-table { display: none; }
