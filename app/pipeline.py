@@ -11,6 +11,46 @@ from app.emailer import send_report_email
 logger = logging.getLogger(__name__)
 
 
+class PipelineProgress:
+    STEPS = [
+        ("scraping", "\u6293\u53d6 Trending \u9875\u9762", 15),
+        ("dedup", "\u53bb\u91cd\u8fc7\u6ee4", 25),
+        ("enriching", "\u83b7\u53d6\u4ed3\u5e93\u8be6\u60c5", 50),
+        ("analyzing", "AI \u5206\u6790\u8bc4\u5206", 75),
+        ("report", "\u751f\u6210\u62a5\u544a", 90),
+        ("email", "\u53d1\u9001\u90ae\u4ef6", 95),
+        ("done", "\u5b8c\u6210", 100),
+    ]
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.percentage = 0
+        self.step = "idle"
+        self.message = "\u7b49\u5f85\u4e2d"
+
+    def update(self, percentage: int, step: str, message: str):
+        self.percentage = percentage
+        self.step = step
+        self.message = message
+
+    def set_step(self, step_key: str, detail: str = ""):
+        for key, label, pct in self.STEPS:
+            if key == step_key:
+                msg = f"{label}{'...' if pct < 100 else ''}"
+                if detail:
+                    msg += f" ({detail})"
+                self.update(pct, key, msg)
+                return
+
+    def to_dict(self):
+        return {"percentage": self.percentage, "step": self.step, "message": self.message}
+
+
+pipeline_progress = PipelineProgress()
+
+
 def _serialize_analyzed(analyzed) -> str:
     items = []
     for a in analyzed:
@@ -32,31 +72,39 @@ async def run_pipeline() -> dict:
     settings = get_settings()
     languages = [l.strip() for l in settings.trending_languages.split(",")]
 
+    pipeline_progress.set_step("scraping", f"\u8bed\u8a00: {', '.join(languages)}")
     logger.info("Step 1: Scraping...")
     repos = await fetch_trending(languages, settings.trending_since)
     total_scraped = len(repos)
     if not repos:
+        pipeline_progress.update(100, "done", "\u65e0\u6570\u636e")
         return {"status": "no_data"}
 
+    pipeline_progress.set_step("dedup", f"\u5171 {total_scraped} \u4e2a\u9879\u76ee")
     logger.info("Step 2: Dedup...")
     fresh = [r for r in repos if not await is_recently_pushed(r.name, settings.dedup_days)]
     skipped = total_scraped - len(fresh)
     if not fresh:
+        pipeline_progress.update(100, "done", f"\u5168\u90e8\u5df2\u63a8\u9001\u8fc7\uff08\u8df3\u8fc7 {skipped}\uff09")
         return {"status": "all_deduped"}
 
+    pipeline_progress.set_step("enriching", f"{len(fresh[:settings.max_projects])} \u4e2a\u9879\u76ee")
     logger.info("Step 3: Enriching...")
     fresh = await enrich_repos(fresh[:settings.max_projects], settings.github_token)
 
+    pipeline_progress.set_step("analyzing", f"{len(fresh)} \u4e2a\u9879\u76ee")
     logger.info("Step 4: Analyzing...")
     tech_stack = await get_tech_stack()
     analyzed = await analyze_repos(fresh, tech_stack)
 
+    pipeline_progress.set_step("report")
     logger.info("Step 5: Report...")
     html = generate_report(analyzed, total_scraped, skipped)
     report_json = _serialize_analyzed(analyzed)
     await save_report(html, report_json, len(analyzed))
     await mark_pushed([a.repo.name for a in analyzed])
 
+    pipeline_progress.set_step("email")
     logger.info("Step 6: Email...")
     email_sent = False
     try:
@@ -64,4 +112,5 @@ async def run_pipeline() -> dict:
     except Exception as e:
         logger.error(f"Email failed: {e}")
 
+    pipeline_progress.set_step("done", f"\u63a8\u9001 {len(analyzed)} \u4e2a\u9879\u76ee")
     return {"status": "success", "total": total_scraped, "skipped": skipped, "pushed": len(analyzed), "email": email_sent}

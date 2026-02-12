@@ -16,7 +16,7 @@ from app.database import (
     create_user, get_user_by_username, get_user_by_id, list_users, update_user, delete_user,
     get_preset_types, set_preset_types,
 )
-from app.pipeline import run_pipeline
+from app.pipeline import run_pipeline, pipeline_progress
 import os
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -28,12 +28,14 @@ pipeline_status = {"running": False, "last_result": None}
 async def scheduled_job():
     global pipeline_status
     pipeline_status["running"] = True
+    pipeline_progress.reset()
     try:
         result = await run_pipeline()
         pipeline_status["last_result"] = result
         logger.info(f"Result: {result}")
     except Exception as e:
         pipeline_status["last_result"] = {"status": "error", "message": str(e)}
+        pipeline_progress.update(100, "error", f"\u5931\u8d25: {e}")
         logger.error(f"Job failed: {e}")
     finally:
         pipeline_status["running"] = False
@@ -211,7 +213,10 @@ async def health():
 
 @app.get("/api/status")
 async def status(user: dict = Depends(get_current_user)):
-    return pipeline_status
+    return {
+        **pipeline_status,
+        "progress": pipeline_progress.to_dict(),
+    }
 
 
 @app.post("/api/trigger")
@@ -253,12 +258,10 @@ async def report_html(report_id: int):
 async def root():
     return {"status": "ok", "web": "/web/"}
 
-
 @app.post("/trigger")
 async def trigger_legacy(bg: BackgroundTasks):
     bg.add_task(scheduled_job)
     return {"status": "triggered"}
-
 
 @app.get("/latest", response_class=HTMLResponse)
 async def latest():
