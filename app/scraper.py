@@ -26,23 +26,18 @@ def _parse_trending_page(html: str) -> list[TrendingRepo]:
         name = h2.get("href", "").strip("/")
         if not name:
             continue
-
         desc_tag = article.select_one("p")
         description = desc_tag.get_text(strip=True) if desc_tag else ""
-
         lang_tag = article.select_one("[itemprop='programmingLanguage']")
         language = lang_tag.get_text(strip=True) if lang_tag else ""
-
         links = article.select("a.Link--muted")
         stars = _parse_int(links[0].get_text()) if len(links) > 0 else 0
         forks = _parse_int(links[1].get_text()) if len(links) > 1 else 0
-
         today_tag = article.select_one("span.d-inline-block.float-sm-right")
         stars_today = 0
         if today_tag:
             text = today_tag.get_text(strip=True)
             stars_today = _parse_int(text.split()[0]) if text else 0
-
         repos.append(TrendingRepo(
             name=name, url=f"https://github.com/{name}",
             description=description, language=language,
@@ -55,7 +50,6 @@ async def fetch_trending(languages: list[str], since: str = "daily") -> list[Tre
     all_repos: dict[str, TrendingRepo] = {}
     urls = [f"{BASE_URL}?since={since}"]
     urls += [f"{BASE_URL}/{lang}?since={since}" for lang in languages]
-
     async with httpx.AsyncClient(headers=HEADERS, timeout=30, follow_redirects=True) as client:
         for url in urls:
             try:
@@ -67,5 +61,14 @@ async def fetch_trending(languages: list[str], since: str = "daily") -> list[Tre
                 await asyncio.sleep(random.uniform(1, 2))
             except Exception as e:
                 logger.warning(f"Failed to fetch {url}: {e}")
-    logger.info(f"Scraped {len(all_repos)} unique repos")
+    logger.info(f"Scraped {len(all_repos)} unique repos (since={since})")
     return list(all_repos.values())
+
+
+async def fetch_trending_multi(languages: list[str]) -> dict[str, list[TrendingRepo]]:
+    """\u6293\u53d6 daily/weekly/monthly \u4e09\u4e2a\u7ef4\u5ea6"""
+    result = {}
+    for since in ["daily", "weekly", "monthly"]:
+        result[since] = await fetch_trending(languages, since)
+        logger.info(f"  {since}: {len(result[since])} repos")
+    return result
