@@ -32,8 +32,8 @@
       <!-- Stack table -->
       <el-table :data="store.items" v-loading="store.loading" style="margin-top: 16px" class="responsive-table">
         <el-table-column label="启用" width="70" align="center">
-          <template #default="{ row, $index }">
-            <el-switch v-model="row.enabled" @change="store.toggleItem($index)" />
+          <template #default="{ row }">
+            <el-switch v-model="row.enabled" />
           </template>
         </el-table-column>
         <el-table-column label="技术栈" min-width="140">
@@ -116,7 +116,6 @@ onMounted(() => store.fetch())
 .weight-cell { display: flex; align-items: center; }
 .weight-cell .el-slider { flex: 1; }
 .weight-tag { margin-left: 12px; min-width: 32px; text-align: center; }
-
 @media (max-width: 768px) {
   .add-input { width: 100%; }
   .add-section { flex-direction: column; align-items: stretch; }

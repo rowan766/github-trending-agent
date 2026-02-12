@@ -29,7 +29,6 @@ export const useTechStackStore = defineStore('techStack', () => {
   }
 
   function removeItem(index) { items.value.splice(index, 1) }
-  function toggleItem(index) { items.value[index].enabled = !items.value[index].enabled }
 
-  return { items, presetTypes, loading, fetch, save, addItem, removeItem, toggleItem }
+  return { items, presetTypes, loading, fetch, save, addItem, removeItem }
 })
