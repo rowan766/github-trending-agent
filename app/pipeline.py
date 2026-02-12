@@ -19,6 +19,7 @@ def _serialize_analyzed(analyzed) -> str:
             "description": a.repo.description, "language": a.repo.language,
             "stars": a.repo.stars, "stars_today": a.repo.stars_today,
             "forks": a.repo.forks, "topics": a.repo.topics,
+            "readme_snippet": a.repo.readme_snippet,
             "category": a.category, "summary_zh": a.summary_zh,
             "relevance_score": a.relevance_score,
             "relevance_reason": a.relevance_reason,

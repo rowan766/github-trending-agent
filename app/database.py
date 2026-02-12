@@ -94,9 +94,9 @@ async def create_user(username: str, password: str, email: str = "", role: str =
                 (username, hashed, email, role, json.dumps(DEFAULT_TECH_STACK, ensure_ascii=False))
             )
             await db.commit()
-            cursor = await db.execute("SELECT id, username, email, role, created_at FROM users WHERE username = ?", (username,))
+            cursor = await db.execute("SELECT id, username, email, role, receive_email, created_at FROM users WHERE username = ?", (username,))
             row = await cursor.fetchone()
-            return {"id": row[0], "username": row[1], "email": row[2], "role": row[3], "created_at": row[4]}
+            return {"id": row[0], "username": row[1], "email": row[2], "role": row[3], "receive_email": bool(row[4]), "created_at": row[5]}
         except aiosqlite.IntegrityError:
             return None
 
@@ -146,13 +146,19 @@ async def delete_user(user_id: int) -> bool:
 
 
 async def get_all_user_emails() -> list[str]:
-    """获取所有开启了邮件接收且填了邮箱的用户邮箱"""
+    """\u83b7\u53d6\u6240\u6709\u5f00\u542f\u90ae\u4ef6\u63a5\u6536\u7684\u7528\u6237\u90ae\u7bb1\uff08\u652f\u6301\u591a\u90ae\u7bb1\u9017\u53f7\u5206\u9694\uff09"""
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
             "SELECT email FROM users WHERE email != '' AND receive_email = 1"
         )
         rows = await cursor.fetchall()
-        return [row[0] for row in rows]
+        emails = []
+        for row in rows:
+            for e in row[0].split(","):
+                e = e.strip()
+                if e:
+                    emails.append(e)
+        return list(set(emails))
 
 
 # ---- User Tech Stack ----
@@ -186,14 +192,11 @@ async def set_config(key: str, value):
 async def get_tech_stack() -> list[dict]:
     return await get_config("tech_stack") or DEFAULT_TECH_STACK
 
-
 async def set_tech_stack(stack: list[dict]):
     await set_config("tech_stack", stack)
 
-
 async def get_preset_types() -> list[str]:
     return await get_config("preset_types") or PRESET_TECH_TYPES
-
 
 async def set_preset_types(types: list[str]):
     await set_config("preset_types", types)
