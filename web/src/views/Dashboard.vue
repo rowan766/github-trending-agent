@@ -15,15 +15,17 @@
       </div>
 
       <!-- Progress bar -->
-      <div v-if="isRunning" class="progress-section">
+      <div v-if="showProgress" class="progress-section">
         <div class="progress-header">
           <span class="progress-step">
-            <el-icon class="is-loading" style="vertical-align:-2px"><Loading /></el-icon>
+            <el-icon :class="{ 'is-loading': isRunning }" style="vertical-align:-2px">
+              <Loading v-if="isRunning" /><SuccessFilled v-else />
+            </el-icon>
             {{ progress.message }}
           </span>
           <span class="progress-pct">{{ progress.percentage }}%</span>
         </div>
-        <el-progress :percentage="progress.percentage" :stroke-width="12" :show-text="false" color="#f0883e" />
+        <el-progress :percentage="progress.percentage" :stroke-width="12" :show-text="false" :color="isRunning ? '#f0883e' : '#67c23a'" />
         <div class="progress-steps">
           <span v-for="s in stepList" :key="s.key"
             :class="['step-dot', { active: s.key === progress.step, done: s.pct < progress.percentage }]">
@@ -126,7 +128,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useReportStore } from '../stores/report'
 import { useUserStore } from '../stores/user'
-import { Refresh, Document, TrendCharts, Clock, Loading, Promotion } from '@element-plus/icons-vue'
+import { Refresh, Document, TrendCharts, Clock, Loading, Promotion, SuccessFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
@@ -135,7 +137,9 @@ const userStore = useUserStore()
 const triggering = ref(false)
 const currentPage = ref(1)
 const pageSize = 10
+const showProgress = ref(false)
 let pollTimer = null
+let hideProgressTimer = null
 
 const pagedList = computed(() => {
   const start = (currentPage.value - 1) * pageSize
@@ -220,25 +224,32 @@ async function handleTrigger() {
 
 function startPoll() {
   if (pollTimer) return
+  showProgress.value = true
+  if (hideProgressTimer) { clearTimeout(hideProgressTimer); hideProgressTimer = null }
   pollTimer = setInterval(async () => {
     await reportStore.fetchStatus()
     if (!reportStore.pipelineStatus.running) {
       clearInterval(pollTimer); pollTimer = null
       await reportStore.fetchList()
       ElMessage.success('任务完成!')
+      // 完成后保留进度条 5 秒再隐藏
+      hideProgressTimer = setTimeout(() => { showProgress.value = false }, 5000)
     }
   }, 2000)
 }
 
 function goDetail(row) { router.push(`/report/${row.id}`) }
 
-onMounted(() => {
+onMounted(async () => {
   reportStore.fetchList()
-  reportStore.fetchStatus()
+  await reportStore.fetchStatus()
   userStore.fetchMe()
   if (reportStore.pipelineStatus.running) startPoll()
 })
-onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null } })
+onUnmounted(() => {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
+  if (hideProgressTimer) { clearTimeout(hideProgressTimer); hideProgressTimer = null }
+})
 </script>
 
 <style scoped>
