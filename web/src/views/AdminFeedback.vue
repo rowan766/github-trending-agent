@@ -44,7 +44,7 @@
     </el-card>
 
     <!-- Reply dialog -->
-    <el-dialog v-model="showReply" title="回复反馈" width="500px">
+    <el-dialog v-model="showReply" title="回复反馈" width="500px" class="reply-dialog">
       <div v-if="currentFb" style="margin-bottom:12px">
         <el-tag size="small">{{ currentFb.username }}</el-tag>
         <el-text type="info" size="small" style="margin-left:8px">{{ currentFb.created_at }}</el-text>
@@ -120,4 +120,13 @@ onMounted(fetchList)
   font-size: 13px; color: #333;
 }
 .fb-actions { margin-top: 10px; }
+
+@media (max-width: 768px) {
+  .fb-header { gap: 6px; }
+  .fb-header .el-avatar { display: none; }
+  .card-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+</style>
+<style>
+.reply-dialog { --el-dialog-width: 92vw !important; max-width: 500px; }
 </style>

@@ -38,8 +38,9 @@
     </el-header>
 
     <el-container>
-      <el-aside :width="collapsed ? '64px' : '220px'" class="app-aside">
-        <el-menu :default-active="route.path" router :collapse="collapsed" class="aside-menu">
+      <div v-if="!collapsed && isMobile" class="sidebar-backdrop" @click="collapsed = true"></div>
+      <el-aside :width="collapsed ? '64px' : '220px'" class="app-aside" :class="{ 'aside-open': !collapsed }">
+        <el-menu :default-active="route.path" router :collapse="collapsed" class="aside-menu" @select="onMenuSelect">
           <el-menu-item index="/">
             <el-icon><DataBoard /></el-icon>
             <template #title>仪表盘</template>
@@ -72,7 +73,7 @@
   </el-container>
 
   <!-- Profile dialog -->
-  <el-dialog v-model="showProfile" title="个人中心" width="500px" destroy-on-close>
+  <el-dialog v-model="showProfile" title="个人中心" width="500px" class="profile-dialog" destroy-on-close>
     <el-form :model="profileForm" label-width="100px">
       <el-form-item label="用户名">
         <el-input :value="userStore.user?.username" disabled />
@@ -118,7 +119,8 @@ import { ChatDotRound, Comment } from '@element-plus/icons-vue'
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const collapsed = ref(false)
+const collapsed = ref(window.innerWidth <= 768)
+const isMobile = ref(window.innerWidth <= 768)
 const showProfile = ref(false)
 const saving = ref(false)
 const profileForm = reactive({ emails: ['', '', ''], receive_email: true, password: '' })
@@ -146,10 +148,22 @@ function handleCmd(cmd) {
   }
 }
 
+function onMenuSelect() {
+  if (isMobile.value) collapsed.value = true
+}
+
 function onOpenProfile() { openProfileDialog() }
 
-onMounted(() => { window.addEventListener('open-profile', onOpenProfile) })
-onUnmounted(() => { window.removeEventListener('open-profile', onOpenProfile) })
+function onResize() { isMobile.value = window.innerWidth <= 768 }
+
+onMounted(() => {
+  window.addEventListener('open-profile', onOpenProfile)
+  window.addEventListener('resize', onResize)
+})
+onUnmounted(() => {
+  window.removeEventListener('open-profile', onOpenProfile)
+  window.removeEventListener('resize', onResize)
+})
 
 async function handleSaveProfile() {
   const validEmails = profileForm.emails.filter(e => e.trim())
@@ -196,11 +210,26 @@ html, body, #app { height: 100%; }
 .aside-menu .el-menu-item.is-active { color: #fff; background: rgba(240,136,62,0.15); }
 .app-main { background: #f5f7fa; overflow-y: auto; padding: 24px; }
 .main-content { max-width: 1100px; margin: 0 auto; }
+.sidebar-backdrop {
+  display: none;
+}
 @media (max-width: 768px) {
-  .app-aside { position: fixed; z-index: 20; height: calc(100vh - 56px); top: 56px; }
-  .app-main { padding: 16px; }
+  .sidebar-backdrop {
+    display: block; position: fixed; top: 56px; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.3); z-index: 19;
+  }
+  .app-aside {
+    position: fixed; z-index: 20; height: calc(100vh - 56px); top: 56px;
+    transform: translateX(-100%); transition: transform 0.3s, width 0.3s;
+  }
+  .app-aside.aside-open { transform: translateX(0); }
+  .app-main { padding: 12px; }
   .main-content { max-width: 100%; }
   .username { display: none; }
   .header-title { font-size: 15px; }
+  .header-right .el-tag { display: none; }
+  .app-header { padding: 0 12px; }
+  .profile-dialog { --el-dialog-width: 92vw !important; }
+  .profile-dialog .el-form-item__label { width: 80px !important; }
 }
 </style>

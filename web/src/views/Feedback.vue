@@ -143,7 +143,11 @@ onMounted(fetchList)
 
 @media (max-width: 768px) {
   .donate-qr-row { gap: 20px; }
-  .qr-placeholder, .qr-img { width: 150px; height: 150px; }
-  .qr-img { margin-top: -150px; }
+  .qr-placeholder, .qr-img { width: 140px; height: 140px; }
+  .qr-img { margin-top: -140px; }
+  .donate-desc { font-size: 14px; }
+  .section-card :deep(.el-form-item__label) { width: 60px !important; }
+  .section-card :deep(.el-radio-group) { display: flex; flex-wrap: wrap; gap: 8px; }
+  .fb-header { flex-wrap: wrap; }
 }
 </style>

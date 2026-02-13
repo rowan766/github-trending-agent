@@ -105,6 +105,11 @@ onMounted(() => store.fetchDetail(route.params.id))
 .stat-card { text-align: center; margin-bottom: 12px; }
 .report-tabs :deep(.el-tabs__item) { font-size: 15px; }
 @media (max-width: 768px) {
-  .report-tabs :deep(.el-tabs__item) { font-size: 13px; padding: 0 10px; }
+  .report-tabs :deep(.el-tabs__nav) { flex-wrap: nowrap; }
+  .report-tabs :deep(.el-tabs__item) { font-size: 12px; padding: 0 8px; }
+  .report-tabs :deep(.el-tabs__item .el-tag) { display: none; }
+  .stats-row .el-col { margin-bottom: 0; }
+  .stat-card { margin-bottom: 8px; }
+  .stat-card :deep(.el-statistic__number) { font-size: 20px; }
 }
 </style>

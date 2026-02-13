@@ -8,7 +8,7 @@
         </div>
       </template>
 
-      <el-table :data="users" v-loading="loading" stripe>
+      <el-table :data="users" v-loading="loading" stripe class="desktop-table">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="username" label="用户名" min-width="120" />
         <el-table-column prop="email" label="邮箱" min-width="160" show-overflow-tooltip />
@@ -29,10 +29,30 @@
           </template>
         </el-table-column>
       </el-table>
+      <div class="mobile-list" v-loading="loading">
+        <div v-for="row in users" :key="row.id" class="mobile-user-card">
+          <div class="mobile-user-top">
+            <div class="mobile-user-info">
+              <strong>{{ row.username }}</strong>
+              <el-tag :type="row.role === 'admin' ? 'danger' : 'info'" size="small">{{ row.role === 'admin' ? '管理员' : '用户' }}</el-tag>
+            </div>
+            <div class="mobile-user-actions">
+              <el-button type="primary" link size="small" @click="openEdit(row)">编辑</el-button>
+              <el-popconfirm v-if="row.role !== 'admin'" title="确定删除该用户？" @confirm="handleDelete(row.id)">
+                <template #reference>
+                  <el-button type="danger" link size="small">删除</el-button>
+                </template>
+              </el-popconfirm>
+            </div>
+          </div>
+          <el-text v-if="row.email" type="info" size="small" class="mobile-user-email">{{ row.email }}</el-text>
+          <el-text type="info" size="small">{{ row.created_at }}</el-text>
+        </div>
+      </div>
     </el-card>
 
     <!-- Add dialog -->
-    <el-dialog v-model="showAdd" title="添加用户" width="420px" destroy-on-close>
+    <el-dialog v-model="showAdd" title="添加用户" width="420px" class="user-dialog" destroy-on-close>
       <el-form :model="addForm" label-width="70px">
         <el-form-item label="用户名"><el-input v-model="addForm.username" /></el-form-item>
         <el-form-item label="密码"><el-input v-model="addForm.password" type="password" show-password /></el-form-item>
@@ -51,7 +71,7 @@
     </el-dialog>
 
     <!-- Edit dialog -->
-    <el-dialog v-model="showEdit" title="编辑用户" width="420px" destroy-on-close>
+    <el-dialog v-model="showEdit" title="编辑用户" width="420px" class="user-dialog" destroy-on-close>
       <el-form :model="editForm" label-width="70px">
         <el-form-item label="用户名"><el-input v-model="editForm.username" /></el-form-item>
         <el-form-item label="新密码"><el-input v-model="editForm.password" type="password" placeholder="留空不修改" show-password /></el-form-item>
@@ -135,4 +155,19 @@ onMounted(fetchUsers)
 
 <style scoped>
 .card-header { display: flex; justify-content: space-between; align-items: center; }
+.mobile-list { display: none; }
+.mobile-user-card { padding: 12px 0; border-bottom: 1px solid #eee; }
+.mobile-user-card:last-child { border-bottom: none; }
+.mobile-user-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.mobile-user-info { display: flex; align-items: center; gap: 8px; }
+.mobile-user-actions { display: flex; gap: 4px; }
+.mobile-user-email { display: block; margin-bottom: 2px; word-break: break-all; }
+
+@media (max-width: 768px) {
+  .desktop-table { display: none; }
+  .mobile-list { display: block; }
+}
+</style>
+<style>
+.user-dialog { --el-dialog-width: 92vw !important; max-width: 420px; }
 </style>

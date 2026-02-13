@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(pushd:*)",
+      "Bash(pnpm run build:*)"
     ]
   }
 }

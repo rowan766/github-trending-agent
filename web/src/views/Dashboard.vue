@@ -219,8 +219,12 @@ onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null 
 @media (max-width: 768px) {
   .mobile-list { display: block; }
   .desktop-table { display: none; }
+  .action-bar { flex-direction: column; align-items: flex-start; }
+  .action-btns { align-self: flex-end; }
   .trigger-btn { min-width: 110px; height: 36px; font-size: 14px; }
   .progress-steps { flex-wrap: wrap; }
-  .step-dot { font-size: 11px; }
+  .step-dot { font-size: 11px; min-width: 40px; }
+  .stat-card { margin-bottom: 8px; }
+  .stat-card :deep(.el-statistic__number) { font-size: 20px; }
 }
 </style>

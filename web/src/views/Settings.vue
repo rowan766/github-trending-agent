@@ -62,7 +62,7 @@
     </el-card>
 
     <!-- Detail dialog -->
-    <el-dialog v-model="detailVisible" :title="`编辑方向：${editingDir?.name || ''}`" width="500px" destroy-on-close>
+    <el-dialog v-model="detailVisible" :title="`编辑方向：${editingDir?.name || ''}`" width="500px" class="setting-dialog" destroy-on-close>
       <div v-if="editingDir" class="detail-content">
         <div class="detail-tags">
           <el-tag
@@ -85,7 +85,7 @@
     </el-dialog>
 
     <!-- Add direction dialog -->
-    <el-dialog v-model="showAddDialog" title="新增技术方向" width="400px" destroy-on-close>
+    <el-dialog v-model="showAddDialog" title="新增技术方向" width="400px" class="setting-dialog" destroy-on-close>
       <el-input v-model="newDirName" placeholder="输入方向名称，如：Rust、移动端、数据库" @keyup.enter="handleAddDirection" />
       <template #footer>
         <el-button @click="showAddDialog = false">取消</el-button>
@@ -252,5 +252,14 @@ onMounted(() => store.fetch())
 
 @media (max-width: 768px) {
   .directions-grid { grid-template-columns: 1fr; }
+  .card-header { flex-direction: column; align-items: flex-start; }
+  .card-header .el-button { align-self: flex-end; }
+  .direction-card { padding: 12px; }
+  .direction-name { font-size: 15px; }
+  .tag-item { font-size: 11px; }
+  .detail-tag { font-size: 12px; }
+  .add-tag-row { flex-direction: column; }
+  .add-tag-row .el-button { align-self: flex-end; }
 }
+:global(.setting-dialog) { --el-dialog-width: 92vw !important; max-width: 500px; }
 </style>

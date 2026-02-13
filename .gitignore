@@ -5,3 +5,4 @@ data/*.db
 .venv/
 *.egg-info/
 dist/
+app/static/

@@ -67,6 +67,14 @@ function copyUrl(url) {
 .project-topics { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 
 @media (max-width: 768px) {
-  .project-name { font-size: 15px; }
+  .project-card { padding: 12px; }
+  .project-name-row { flex-wrap: wrap; }
+  .project-name { font-size: 14px; word-break: break-all; }
+  .project-meta .el-tag { font-size: 11px; }
+  .project-summary { font-size: 13px; }
+  .project-reason { font-size: 12px; }
+  .project-desc { font-size: 12px; }
+  .readme-content { max-height: 80px; font-size: 12px; }
+  .project-topics .el-tag { font-size: 11px; }
 }
 </style>
