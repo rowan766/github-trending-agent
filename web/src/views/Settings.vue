@@ -4,95 +4,150 @@
       <template #header>
         <div class="card-header">
           <div>
-            <h2>⚙️ 技术栈配置</h2>
-            <el-text type="info">配置你关注的技术方向和权重，AI 会根据此进行个性化推荐排序</el-text>
+            <h2>⚙️ 技术方向配置</h2>
+            <el-text type="info">选择你关注的技术方向，点击卡片可查看和编辑标签详情</el-text>
           </div>
           <el-button type="primary" :loading="store.loading" @click="handleSave">保存配置</el-button>
         </div>
       </template>
 
-      <!-- Quick add from presets -->
-      <div class="preset-section">
-        <el-text type="info" size="small">快速添加预制技术栈：</el-text>
-        <div class="preset-tags">
-          <el-tag v-for="t in availablePresets" :key="t" class="preset-tag" effect="plain" @click="handleAdd(t)" style="cursor:pointer">
-            + {{ t }}
-          </el-tag>
+      <div class="directions-grid" v-loading="store.loading">
+        <div
+          v-for="(dir, index) in store.directions"
+          :key="dir.name"
+          class="direction-card"
+          :class="{ active: dir.enabled }"
+        >
+          <div class="direction-header">
+            <span class="direction-name" @click="openDetail(index)">{{ dir.name }}</span>
+            <div class="direction-actions">
+              <el-switch :model-value="dir.enabled" @change="store.toggleDirection(index)" />
+              <el-button type="danger" link size="small" @click="handleRemoveDirection(index)" title="删除方向">✕</el-button>
+            </div>
+          </div>
+          <div class="direction-tags" @click="openDetail(index)">
+            <el-tag
+              v-for="tag in dir.tags.slice(0, 6)"
+              :key="tag"
+              size="small"
+              :type="dir.enabled ? '' : 'info'"
+              effect="plain"
+              class="tag-item"
+            >{{ tag }}</el-tag>
+            <el-tag v-if="dir.tags.length > 6" size="small" type="warning" effect="plain" class="tag-item tag-more">
+              +{{ dir.tags.length - 6 }} 点击查看全部
+            </el-tag>
+            <el-tag v-if="dir.tags.length === 0" size="small" type="info" effect="plain" class="tag-item">
+              暂无标签，点击添加
+            </el-tag>
+          </div>
+        </div>
+
+        <!-- Add new direction card -->
+        <div class="direction-card add-card" @click="showAddDialog = true">
+          <div class="add-card-content">
+            <span class="add-icon">＋</span>
+            <span>新增方向</span>
+          </div>
         </div>
       </div>
 
-      <!-- Custom add -->
-      <div class="add-section">
-        <el-input v-model="newName" placeholder="或输入自定义技术名称" @keyup.enter="handleAdd(newName.trim())" class="add-input">
-          <template #prepend><el-icon><Plus /></el-icon></template>
-        </el-input>
-        <el-button type="success" @click="handleAdd(newName.trim())" :disabled="!newName.trim()">添加</el-button>
-      </div>
-
-      <!-- Stack table -->
-      <el-table :data="store.items" v-loading="store.loading" style="margin-top: 16px" class="responsive-table">
-        <el-table-column label="启用" width="70" align="center">
-          <template #default="{ row }">
-            <el-switch v-model="row.enabled" />
-          </template>
-        </el-table-column>
-        <el-table-column label="技术栈" min-width="140">
-          <template #default="{ row }">
-            <span>{{ row.name }}</span>
-            <el-tag v-if="row.preset" size="small" type="info" style="margin-left: 8px">预制</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="权重" min-width="260">
-          <template #default="{ row }">
-            <div class="weight-cell">
-              <el-slider v-model="row.weight" :min="1" :max="10" :step="1" show-stops :disabled="!row.enabled" />
-              <el-tag :type="row.weight >= 8 ? 'danger' : row.weight >= 5 ? 'warning' : 'info'" size="small" class="weight-tag">
-                {{ row.weight }}
-              </el-tag>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="70" align="center">
-          <template #default="{ row, $index }">
-            <el-button type="danger" link size="small" @click="store.removeItem($index)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
       <el-alert type="info" :closable="false" style="margin-top: 20px">
-        <template #title><strong>权重说明</strong></template>
+        <template #title><strong>说明</strong></template>
         <div style="line-height: 2">
-          权重范围 1-10，影响 AI 对项目的相关度评分。
-          <el-tag type="danger" size="small">8-10</el-tag> 高优先
-          <el-tag type="warning" size="small">5-7</el-tag> 中等
-          <el-tag type="info" size="small">1-4</el-tag> 低优先
+          这里的标签仅用于对分析结果中匹配的项目做<strong>高亮标记</strong>，不影响数据的排序和抓取结果。
+          所有项目始终按星数排序展示，匹配到你关注方向的项目会带有 🎯 相关 标记，方便快速定位。
         </div>
       </el-alert>
     </el-card>
+
+    <!-- Detail dialog -->
+    <el-dialog v-model="detailVisible" :title="`编辑方向：${editingDir?.name || ''}`" width="500px" destroy-on-close>
+      <div v-if="editingDir" class="detail-content">
+        <div class="detail-tags">
+          <el-tag
+            v-for="(tag, tagIdx) in editingDir.tags"
+            :key="tag"
+            closable
+            :type="editingDir.enabled ? '' : 'info'"
+            @close="handleRemoveTag(tagIdx)"
+            class="detail-tag"
+          >{{ tag }}</el-tag>
+        </div>
+        <div class="add-tag-row">
+          <el-input v-model="newTag" placeholder="输入新标签，回车添加" @keyup.enter="handleAddTag" size="small" class="tag-input" />
+          <el-button type="primary" size="small" @click="handleAddTag" :disabled="!newTag.trim()">添加</el-button>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="detailVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- Add direction dialog -->
+    <el-dialog v-model="showAddDialog" title="新增技术方向" width="400px" destroy-on-close>
+      <el-input v-model="newDirName" placeholder="输入方向名称，如：Rust、移动端、数据库" @keyup.enter="handleAddDirection" />
+      <template #footer>
+        <el-button @click="showAddDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleAddDirection" :disabled="!newDirName.trim()">添加</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useTechStackStore } from '../stores/techStack'
-import { Plus } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const store = useTechStackStore()
-const newName = ref('')
 
-const availablePresets = computed(() =>
-  store.presetTypes.filter(t => !store.items.some(i => i.name === t))
-)
+const detailVisible = ref(false)
+const editingIndex = ref(-1)
+const editingDir = ref(null)
+const newTag = ref('')
+const showAddDialog = ref(false)
+const newDirName = ref('')
 
-function handleAdd(name) {
-  if (!name) return
-  if (store.addItem(name)) {
-    newName.value = ''
-    ElMessage.success(`已添加 ${name}`)
+function openDetail(index) {
+  editingIndex.value = index
+  editingDir.value = store.directions[index]
+  detailVisible.value = true
+}
+
+function handleAddTag() {
+  const tag = newTag.value.trim().toLowerCase()
+  if (!tag) return
+  if (store.addTag(editingIndex.value, tag)) {
+    newTag.value = ''
   } else {
-    ElMessage.warning(`${name} 已存在`)
+    ElMessage.warning('该标签已存在')
   }
+}
+
+function handleRemoveTag(tagIdx) {
+  store.removeTag(editingIndex.value, tagIdx)
+}
+
+function handleAddDirection() {
+  const name = newDirName.value.trim()
+  if (!name) return
+  if (store.addDirection(name)) {
+    newDirName.value = ''
+    showAddDialog.value = false
+    ElMessage.success(`已添加方向：${name}`)
+  } else {
+    ElMessage.warning('该方向已存在')
+  }
+}
+
+async function handleRemoveDirection(index) {
+  const dir = store.directions[index]
+  try {
+    await ElMessageBox.confirm(`确定删除方向「${dir.name}」及其所有标签？`, '确认', { type: 'warning' })
+    store.removeDirection(index)
+    ElMessage.success('已删除')
+  } catch { /* cancelled */ }
 }
 
 async function handleSave() {
@@ -108,16 +163,94 @@ onMounted(() => store.fetch())
 <style scoped>
 .card-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; }
 .card-header h2 { margin-bottom: 4px; }
-.preset-section { margin-bottom: 16px; }
-.preset-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.preset-tag:hover { color: #409eff; border-color: #409eff; }
-.add-section { display: flex; gap: 12px; align-items: center; }
-.add-input { width: 280px; }
-.weight-cell { display: flex; align-items: center; }
-.weight-cell .el-slider { flex: 1; }
-.weight-tag { margin-left: 12px; min-width: 32px; text-align: center; }
+
+.directions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.direction-card {
+  border: 2px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.25s;
+  background: #fafafa;
+}
+
+.direction-card:hover {
+  border-color: #c0c4cc;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.direction-card.active {
+  border-color: #f0883e;
+  background: #fff8f0;
+}
+
+.direction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.direction-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+}
+
+.direction-name:hover { color: #0969da; }
+
+.direction-card.active .direction-name { color: #f0883e; }
+.direction-card.active .direction-name:hover { color: #d4700a; }
+
+.direction-actions { display: flex; align-items: center; gap: 8px; }
+
+.direction-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  cursor: pointer;
+  min-height: 28px;
+}
+
+.tag-item { font-size: 12px; }
+.tag-more { cursor: pointer; }
+
+.add-card {
+  border: 2px dashed #dcdfe6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+}
+
+.add-card:hover { border-color: #f0883e; background: #fff8f0; }
+
+.add-card-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #909399;
+  font-size: 14px;
+}
+
+.add-icon { font-size: 28px; color: #c0c4cc; }
+.add-card:hover .add-icon { color: #f0883e; }
+.add-card:hover .add-card-content { color: #f0883e; }
+
+.detail-content { min-height: 100px; }
+.detail-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; min-height: 32px; }
+.detail-tag { font-size: 13px; }
+.add-tag-row { display: flex; gap: 8px; }
+.tag-input { flex: 1; }
+
 @media (max-width: 768px) {
-  .add-input { width: 100%; }
-  .add-section { flex-direction: column; align-items: stretch; }
+  .directions-grid { grid-template-columns: 1fr; }
 }
 </style>

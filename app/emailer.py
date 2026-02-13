@@ -9,28 +9,15 @@ from app.database import get_all_user_emails
 logger = logging.getLogger(__name__)
 
 
-async def send_report_email(html_content: str) -> bool:
+def _send_smtp(recipients: list[str], html_content: str) -> bool:
+    """通过 SMTP 发送 HTML 邮件给指定收件人列表"""
     settings = get_settings()
     if not all([settings.smtp_user, settings.smtp_password]):
         logger.warning("SMTP not configured, skipping")
         return False
 
-    # 合并 .env 配置的收件人 + 数据库中用户邮箱（去重）
-    recipients = set()
-    if settings.email_to:
-        for e in settings.email_to.split(","):
-            if e.strip():
-                recipients.add(e.strip())
-    user_emails = await get_all_user_emails()
-    recipients.update(user_emails)
-
-    if not recipients:
-        logger.warning("No recipients, skipping")
-        return False
-
-    recipients = list(recipients)
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"\U0001f525 GitHub Trending \u65e5\u62a5 \u2014 {date.today()}"
+    msg["Subject"] = f"\U0001f525 GitHub Trending 日报 — {date.today()}"
     msg["From"] = settings.smtp_user
     msg["To"] = ", ".join(recipients)
     msg.attach(MIMEText(html_content, "html", "utf-8"))
@@ -47,3 +34,25 @@ async def send_report_email(html_content: str) -> bool:
             if attempt == 2:
                 raise
     return False
+
+
+async def send_email_to_user(html_content: str, email_addresses: list[str]) -> bool:
+    """向单个用户的邮箱地址列表发送个性化报告"""
+    if not email_addresses:
+        return False
+    return _send_smtp(email_addresses, html_content)
+
+
+async def send_report_email(html_content: str) -> bool:
+    """向 .env 配置的收件人发送报告（兜底，用于未注册用户）"""
+    settings = get_settings()
+    recipients = set()
+    if settings.email_to:
+        for e in settings.email_to.split(","):
+            if e.strip():
+                recipients.add(e.strip())
+
+    if not recipients:
+        return False
+
+    return _send_smtp(list(recipients), html_content)

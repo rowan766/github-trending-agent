@@ -1,34 +1,49 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getTechStack, updateTechStack, getPresetTypes } from '../api'
+import { getTechStack, updateTechStack } from '../api'
 
 export const useTechStackStore = defineStore('techStack', () => {
-  const items = ref([])
-  const presetTypes = ref([])
+  const directions = ref([])
   const loading = ref(false)
 
   async function fetch() {
     loading.value = true
     try {
-      const [stackRes, typesRes] = await Promise.all([getTechStack(), getPresetTypes()])
-      items.value = stackRes.data
-      presetTypes.value = typesRes.data
+      const res = await getTechStack()
+      directions.value = res.data
     } finally { loading.value = false }
   }
 
   async function save() {
     loading.value = true
-    try { await updateTechStack(items.value) }
+    try { await updateTechStack(directions.value) }
     finally { loading.value = false }
   }
 
-  function addItem(name) {
-    if (items.value.some(i => i.name === name)) return false
-    items.value.push({ name, weight: 5, enabled: true, preset: false })
+  function toggleDirection(index) {
+    directions.value[index].enabled = !directions.value[index].enabled
+  }
+
+  function addDirection(name) {
+    if (directions.value.some(d => d.name === name)) return false
+    directions.value.push({ name, enabled: true, tags: [] })
     return true
   }
 
-  function removeItem(index) { items.value.splice(index, 1) }
+  function removeDirection(index) {
+    directions.value.splice(index, 1)
+  }
 
-  return { items, presetTypes, loading, fetch, save, addItem, removeItem }
+  function addTag(dirIndex, tag) {
+    const dir = directions.value[dirIndex]
+    if (!dir || dir.tags.includes(tag)) return false
+    dir.tags.push(tag)
+    return true
+  }
+
+  function removeTag(dirIndex, tagIndex) {
+    directions.value[dirIndex]?.tags.splice(tagIndex, 1)
+  }
+
+  return { directions, loading, fetch, save, toggleDirection, addDirection, removeDirection, addTag, removeTag }
 })

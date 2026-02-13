@@ -6,26 +6,144 @@ from app.auth import hash_password
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "trending.db")
 
-DEFAULT_TECH_STACK = [
-    {"name": "AI/LLM", "weight": 10, "enabled": True, "preset": True},
-    {"name": "Vue.js", "weight": 9, "enabled": True, "preset": True},
-    {"name": "React", "weight": 8, "enabled": True, "preset": True},
-    {"name": "FastAPI", "weight": 9, "enabled": True, "preset": True},
-    {"name": "Three.js", "weight": 7, "enabled": True, "preset": True},
-    {"name": "Cesium", "weight": 7, "enabled": True, "preset": True},
-    {"name": "Docker", "weight": 6, "enabled": True, "preset": True},
-    {"name": "n8n", "weight": 6, "enabled": True, "preset": True},
-    {"name": "Dify", "weight": 7, "enabled": True, "preset": True},
+TECH_DIRECTIONS = [
+    {
+        "name": "AI/LLM",
+        "enabled": True,
+        "tags": [
+            "ai", "llm", "gpt", "openai", "langchain", "openclaw","transformer",
+            "machine-learning", "deep-learning", "nlp", "chatgpt",
+            "diffusion", "stable-diffusion", "pytorch", "tensorflow",
+            "huggingface", "rag", "agent", "dify", "n8n", "comfyui",
+            "ollama", "anthropic", "gemini", "claude", "mcp",
+            "copilot", "cursor", "ai-coding", "tts", "whisper",
+        ],
+    },
+    {
+        "name": "前端",
+        "enabled": True,
+        "tags": [
+            "vue", "vue.js", "react", "angular", "svelte", "next.js",
+            "nextjs", "nuxt", "nuxt.js", "javascript", "typescript",
+            "css", "html", "webpack", "vite", "tailwind", "element-plus",
+            "ant-design", "frontend", "sass", "less", "pinia", "redux",
+            "electron", "tauri", "pwa", "responsive", "uniapp", "taro",
+        ],
+    },
+    {
+        "name": "Web3",
+        "enabled": False,
+        "tags": [
+            "web3", "blockchain", "ethereum", "solidity", "smart-contract",
+            "defi", "nft", "dapp", "metamask", "hardhat", "foundry",
+            "solana", "ipfs", "wallet", "crypto", "ton", "cosmos",
+            "zk", "zero-knowledge", "layer2", "rollup",
+        ],
+    },
+    {
+        "name": "Java",
+        "enabled": False,
+        "tags": [
+            "java", "spring", "spring-boot", "springboot", "maven",
+            "gradle", "mybatis", "hibernate", "springcloud", "kafka",
+            "tomcat", "netty", "jvm", "quarkus", "micronaut",
+        ],
+    },
+    {
+        "name": "Python",
+        "enabled": False,
+        "tags": [
+            "python", "fastapi", "django", "flask", "pandas", "numpy",
+            "scipy", "pip", "poetry", "scrapy", "celery", "asyncio",
+            "pydantic", "sqlalchemy", "uvicorn",
+        ],
+    },
+    {
+        "name": "Go",
+        "enabled": False,
+        "tags": [
+            "go", "golang", "gin", "echo", "beego", "fiber",
+            "grpc", "protobuf", "cobra", "gorm",
+        ],
+    },
+    {
+        "name": "Rust",
+        "enabled": False,
+        "tags": [
+            "rust", "cargo", "tokio", "wasm", "webassembly",
+            "actix", "axum", "serde",
+        ],
+    },
+    {
+        "name": "测试/QA",
+        "enabled": False,
+        "tags": [
+            "test", "testing", "jest", "pytest", "selenium", "cypress",
+            "playwright", "unittest", "mocha", "qa", "e2e", "vitest",
+            "coverage", "junit", "testng", "jmeter", "k6", "locust",
+            "postman", "newman", "api-testing",
+        ],
+    },
+    {
+        "name": "运维/DevOps",
+        "enabled": False,
+        "tags": [
+            "docker", "kubernetes", "k8s", "devops", "ci/cd", "jenkins",
+            "terraform", "ansible", "nginx", "linux", "monitoring",
+            "prometheus", "grafana", "helm", "github-actions", "gitlab-ci",
+            "argocd", "istio", "envoy", "vault", "consul",
+        ],
+    },
+    {
+        "name": "UI/设计",
+        "enabled": False,
+        "tags": [
+            "figma", "sketch", "design", "ui", "ux", "design-system",
+            "icon", "animation", "lottie", "motion", "color", "font",
+            "prototype", "wireframe", "storybook", "chromatic",
+        ],
+    },
+    {
+        "name": "产品/需求",
+        "enabled": False,
+        "tags": [
+            "product", "requirement", "project-management", "agile",
+            "scrum", "kanban", "roadmap", "analytics", "dashboard",
+            "low-code", "no-code", "workflow", "automation", "saas",
+            "crm", "erp", "bi", "data-visualization",
+        ],
+    },
+    {
+        "name": "3D可视化",
+        "enabled": False,
+        "tags": [
+            "three.js", "threejs", "cesium", "webgl", "3d", "opengl",
+            "unity", "unreal", "blender", "visualization", "gis",
+            "mapbox", "deck.gl", "webgpu",
+        ],
+    },
+    {
+        "name": "移动端",
+        "enabled": False,
+        "tags": [
+            "ios", "android", "swift", "kotlin", "flutter", "dart",
+            "react-native", "expo", "swiftui", "jetpack-compose",
+            "capacitor", "ionic", "mobile",
+        ],
+    },
+    {
+        "name": "数据库/存储",
+        "enabled": False,
+        "tags": [
+            "mysql", "postgresql", "mongodb", "redis", "elasticsearch",
+            "sqlite", "neo4j", "clickhouse", "minio", "s3",
+            "database", "sql", "nosql", "orm", "migration",
+        ],
+    },
 ]
 
-PRESET_TECH_TYPES = [
-    "AI/LLM", "Vue.js", "React", "Angular", "Svelte", "Next.js", "Nuxt.js",
-    "FastAPI", "Django", "Flask", "Express.js", "NestJS", "Spring Boot",
-    "Three.js", "Cesium", "Docker", "Kubernetes", "n8n", "Dify",
-    "TypeScript", "Python", "Go", "Rust", "Java",
-    "PostgreSQL", "MongoDB", "Redis", "Elasticsearch",
-    "WebAssembly", "GraphQL", "gRPC", "Terraform", "CI/CD",
-]
+# 兼容旧代码引用
+DEFAULT_TECH_STACK = TECH_DIRECTIONS
 
 
 async def init_db():
@@ -88,11 +206,7 @@ async def init_db():
         cursor = await db.execute("SELECT 1 FROM config WHERE key = 'tech_stack'")
         if not await cursor.fetchone():
             await db.execute("INSERT INTO config (key, value) VALUES (?, ?)",
-                ("tech_stack", json.dumps(DEFAULT_TECH_STACK, ensure_ascii=False)))
-        cursor = await db.execute("SELECT 1 FROM config WHERE key = 'preset_types'")
-        if not await cursor.fetchone():
-            await db.execute("INSERT INTO config (key, value) VALUES (?, ?)",
-                ("preset_types", json.dumps(PRESET_TECH_TYPES, ensure_ascii=False)))
+                ("tech_stack", json.dumps(TECH_DIRECTIONS, ensure_ascii=False)))
         await db.commit()
 
 
@@ -164,12 +278,33 @@ async def get_all_user_emails() -> list[str]:
         return list(set(emails))
 
 
+async def get_users_for_email() -> list[dict]:
+    """获取所有需要接收邮件的用户及其技术栈"""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT id, username, email, tech_stack FROM users WHERE email != '' AND receive_email = 1"
+        )
+        rows = await cursor.fetchall()
+        users = []
+        for row in rows:
+            emails = [e.strip() for e in row[2].split(",") if e.strip()]
+            if emails:
+                tech_stack = json.loads(row[3]) if row[3] else TECH_DIRECTIONS
+                users.append({
+                    "id": row[0],
+                    "username": row[1],
+                    "emails": emails,
+                    "tech_stack": tech_stack,
+                })
+        return users
+
+
 # ---- User Tech Stack ----
 async def get_user_tech_stack(user_id: int) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute("SELECT tech_stack FROM users WHERE id = ?", (user_id,))
         row = await cursor.fetchone()
-        return json.loads(row[0]) if row and row[0] else DEFAULT_TECH_STACK
+        return json.loads(row[0]) if row and row[0] else TECH_DIRECTIONS
 
 async def set_user_tech_stack(user_id: int, stack: list[dict]):
     async with aiosqlite.connect(DB_PATH) as db:
@@ -196,7 +331,8 @@ async def set_tech_stack(stack: list[dict]):
     await set_config("tech_stack", stack)
 
 async def get_preset_types() -> list[str]:
-    return await get_config("preset_types") or PRESET_TECH_TYPES
+    """保留接口兼容，返回所有方向名称"""
+    return [d["name"] for d in TECH_DIRECTIONS]
 
 async def set_preset_types(types: list[str]):
     await set_config("preset_types", types)

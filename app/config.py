@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     trending_languages: str = "python,javascript,typescript,vue,go,rust"
     trending_since: str = "daily"
     max_projects: int = 25
-    user_tech_stack: str = "Vue.js,React,FastAPI,Three.js,Cesium,Docker,n8n,Dify,AI/LLM"
     dedup_days: int = 7
 
     class Config:
