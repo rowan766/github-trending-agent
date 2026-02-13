@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getReports, getReportDetail, getStatus, triggerPipeline } from '../api'
+import { getReports, getReportDetail, getStatus, triggerPipeline, deleteReport as apiDeleteReport } from '../api'
 
 export const useReportStore = defineStore('report', () => {
   const list = ref([])
@@ -31,5 +31,10 @@ export const useReportStore = defineStore('report', () => {
     return data
   }
 
-  return { list, currentReport, pipelineStatus, loading, fetchList, fetchDetail, fetchStatus, trigger }
+  async function removeReport(id) {
+    await apiDeleteReport(id)
+    list.value = list.value.filter(r => r.id !== id)
+  }
+
+  return { list, currentReport, pipelineStatus, loading, fetchList, fetchDetail, fetchStatus, trigger, removeReport }
 })

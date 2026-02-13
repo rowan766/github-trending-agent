@@ -16,6 +16,7 @@ from app.database import (
     create_user, get_user_by_username, get_user_by_id, list_users, update_user, delete_user,
     get_preset_types, set_preset_types, has_today_report,
     create_feedback, list_feedback, reply_feedback,
+    hide_report_for_user,
 )
 from app.pipeline import run_pipeline, pipeline_progress
 import os
@@ -243,7 +244,7 @@ async def trigger(bg: BackgroundTasks, user: dict = Depends(get_current_user)):
 # ---- Reports ----
 @app.get("/api/reports")
 async def reports(limit: int = 50, user: dict = Depends(get_current_user)):
-    return await get_report_history(limit)
+    return await get_report_history(limit, user_id=int(user["sub"]))
 
 @app.get("/api/reports/{report_id}")
 async def report_detail(report_id: int, user: dict = Depends(get_current_user)):
@@ -254,6 +255,11 @@ async def report_detail(report_id: int, user: dict = Depends(get_current_user)):
     if result.get("report_json"):
         result["projects"] = json.loads(result["report_json"])
     return result
+
+@app.delete("/api/reports/{report_id}")
+async def delete_report(report_id: int, user: dict = Depends(get_current_user)):
+    await hide_report_for_user(int(user["sub"]), report_id)
+    return {"status": "ok"}
 
 @app.get("/api/reports/{report_id}/html", response_class=HTMLResponse)
 async def report_html(report_id: int):

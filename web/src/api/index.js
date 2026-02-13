@@ -36,6 +36,7 @@ export const getPresetTypes = () => api.get('/config/preset-types')
 // Reports
 export const getReports = (limit = 50) => api.get('/reports', { params: { limit } })
 export const getReportDetail = (id) => api.get(`/reports/${id}`)
+export const deleteReport = (id) => api.delete(`/reports/${id}`)
 
 // Admin
 export const getUsers = () => api.get('/admin/users')

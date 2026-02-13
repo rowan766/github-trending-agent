@@ -17,10 +17,6 @@
       <p class="project-summary">📝 {{ p.summary_zh }}</p>
       <p v-if="p.relevance_reason" class="project-reason">💡 <strong>关联：</strong>{{ p.relevance_reason }}</p>
       <p v-if="p.description" class="project-desc">💬 {{ p.description }}</p>
-      <div v-if="p.readme_snippet" class="project-readme">
-        <p class="readme-label">📖 README 摘录</p>
-        <div class="readme-content">{{ p.readme_snippet }}</div>
-      </div>
       <div v-if="p.topics?.length" class="project-topics">
         <el-tag v-for="t in p.topics.slice(0, 10)" :key="t" size="small" type="info" effect="plain">{{ t }}</el-tag>
       </div>
@@ -61,9 +57,6 @@ function copyUrl(url) {
 .project-summary { font-size: 14px; color: #333; margin: 4px 0; line-height: 1.6; }
 .project-reason { font-size: 13px; color: #666; margin: 4px 0; line-height: 1.5; }
 .project-desc { font-size: 13px; color: #888; margin: 4px 0; }
-.project-readme { margin: 8px 0; padding: 10px 12px; background: #f6f8fa; border-radius: 6px; border: 1px solid #e8e8e8; }
-.readme-label { font-size: 12px; color: #666; margin: 0 0 4px; }
-.readme-content { font-size: 13px; color: #444; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; }
 .project-topics { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 
 @media (max-width: 768px) {
@@ -74,7 +67,6 @@ function copyUrl(url) {
   .project-summary { font-size: 13px; }
   .project-reason { font-size: 12px; }
   .project-desc { font-size: 12px; }
-  .readme-content { max-height: 80px; font-size: 12px; }
   .project-topics .el-tag { font-size: 11px; }
 }
 </style>

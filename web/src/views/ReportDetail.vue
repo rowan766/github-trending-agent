@@ -6,62 +6,44 @@
       </template>
     </el-page-header>
 
-    <div v-loading="store.loading">
-      <template v-if="report">
-        <el-row :gutter="16" class="stats-row">
-          <el-col :xs="12" :sm="6">
-            <el-card shadow="never" class="stat-card">
-              <el-statistic title="总项目" :value="report.project_count" />
-            </el-card>
-          </el-col>
-          <el-col :xs="12" :sm="6">
-            <el-card shadow="never" class="stat-card">
-              <el-statistic title="今日最热" :value="dailyProjects.length" />
-            </el-card>
-          </el-col>
-          <el-col :xs="12" :sm="6">
-            <el-card shadow="never" class="stat-card">
-              <el-statistic title="本周飙升" :value="weeklyProjects.length" />
-            </el-card>
-          </el-col>
-          <el-col :xs="12" :sm="6">
-            <el-card shadow="never" class="stat-card">
-              <el-statistic title="本月飙升" :value="monthlyProjects.length" />
-            </el-card>
-          </el-col>
-        </el-row>
-
-        <!-- Tabs -->
-        <el-card shadow="never">
-          <el-tabs v-model="activeTab" class="report-tabs">
-            <el-tab-pane name="hot">
-              <template #label>
-                <span>🔥 最热 <el-tag size="small" round>{{ allByStars.length }}</el-tag></span>
-              </template>
-              <project-list :projects="allByStars" :show-stars-today="false" />
-            </el-tab-pane>
-            <el-tab-pane name="daily">
-              <template #label>
-                <span>⚡ 今日最热 <el-tag size="small" round>{{ dailyProjects.length }}</el-tag></span>
-              </template>
-              <project-list :projects="dailyProjects" period-label="今日" />
-            </el-tab-pane>
-            <el-tab-pane name="weekly">
-              <template #label>
-                <span>📈 本周飙升 <el-tag size="small" round>{{ weeklyProjects.length }}</el-tag></span>
-              </template>
-              <project-list :projects="weeklyProjects" period-label="本周" />
-            </el-tab-pane>
-            <el-tab-pane name="monthly">
-              <template #label>
-                <span>📅 本月飙升 <el-tag size="small" round>{{ monthlyProjects.length }}</el-tag></span>
-              </template>
-              <project-list :projects="monthlyProjects" period-label="本月" />
-            </el-tab-pane>
-          </el-tabs>
-        </el-card>
-      </template>
-    </div>
+    <!-- Tabs -->
+    <el-card v-if="report" v-loading="store.loading" shadow="never" class="tabs-card">
+      <el-tabs v-model="activeTab" class="report-tabs">
+        <el-tab-pane name="hot">
+          <template #label>
+            <span>🔥 最热 <el-tag size="small" round>{{ allByStars.length }}</el-tag></span>
+          </template>
+          <div class="tab-scroll-area">
+            <project-list :projects="allByStars" :show-stars-today="false" />
+          </div>
+        </el-tab-pane>
+        <el-tab-pane name="daily">
+          <template #label>
+            <span>⚡ 今日最热 <el-tag size="small" round>{{ dailyProjects.length }}</el-tag></span>
+          </template>
+          <div class="tab-scroll-area">
+            <project-list :projects="dailyProjects" period-label="今日" />
+          </div>
+        </el-tab-pane>
+        <el-tab-pane name="weekly">
+          <template #label>
+            <span>📈 本周飙升 <el-tag size="small" round>{{ weeklyProjects.length }}</el-tag></span>
+          </template>
+          <div class="tab-scroll-area">
+            <project-list :projects="weeklyProjects" period-label="本周" />
+          </div>
+        </el-tab-pane>
+        <el-tab-pane name="monthly">
+          <template #label>
+            <span>📅 本月飙升 <el-tag size="small" round>{{ monthlyProjects.length }}</el-tag></span>
+          </template>
+          <div class="tab-scroll-area">
+            <project-list :projects="monthlyProjects" period-label="本月" />
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-card>
+    <div v-else v-loading="store.loading" style="height: 200px"></div>
   </div>
 </template>
 
@@ -101,15 +83,26 @@ onMounted(() => store.fetchDetail(route.params.id))
 </script>
 
 <style scoped>
-.stats-row { margin-bottom: 16px; }
-.stat-card { text-align: center; margin-bottom: 12px; }
+.report-detail {
+  height: calc(100vh - 56px - 48px); /* 56 header + 24*2 main padding */
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.tabs-card { flex: 1; min-height: 0; overflow: hidden; }
+.tabs-card :deep(.el-card__body) { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.report-tabs { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.report-tabs :deep(.el-tabs__header) { flex-shrink: 0; }
+.report-tabs :deep(.el-tabs__content) { flex: 1; min-height: 0; overflow: hidden; }
+.report-tabs :deep(.el-tab-pane) { height: 100%; }
+.tab-scroll-area { height: 100%; overflow-y: auto; padding-right: 4px; }
 .report-tabs :deep(.el-tabs__item) { font-size: 15px; }
+
 @media (max-width: 768px) {
+  .report-detail { height: auto; overflow: visible; }
+  .tabs-card, .tabs-card :deep(.el-card__body) { overflow: visible; height: auto; }
+  .report-tabs, .report-tabs :deep(.el-tabs__content) { overflow: visible; }
+  .tab-scroll-area { height: auto; overflow-y: visible; }
   .report-tabs :deep(.el-tabs__nav) { flex-wrap: nowrap; }
   .report-tabs :deep(.el-tabs__item) { font-size: 12px; padding: 0 8px; }
   .report-tabs :deep(.el-tabs__item .el-tag) { display: none; }
-  .stats-row .el-col { margin-bottom: 0; }
-  .stat-card { margin-bottom: 8px; }
-  .stat-card :deep(.el-statistic__number) { font-size: 20px; }
 }
 </style>

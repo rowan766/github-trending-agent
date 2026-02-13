@@ -209,7 +209,7 @@ html, body, #app { height: 100%; }
 .aside-menu .el-menu-item:hover,
 .aside-menu .el-menu-item.is-active { color: #fff; background: rgba(240,136,62,0.15); }
 .app-main { background: #f5f7fa; overflow-y: auto; padding: 24px; }
-.main-content { max-width: 1100px; margin: 0 auto; }
+.main-content { max-width: 1100px; margin: 0 auto; height: 100%; }
 .sidebar-backdrop {
   display: none;
 }

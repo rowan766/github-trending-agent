@@ -6,7 +6,7 @@ from app.github_api import enrich_repos
 from app.analyzer import analyze_repos, compute_user_scores
 from app.database import (
     is_recently_pushed, mark_pushed, save_report,
-    get_users_for_email, DEFAULT_TECH_STACK,
+    get_users_for_email, DEFAULT_TECH_STACK, mark_report_email_sent,
 )
 from app.report import generate_report
 from app.emailer import send_report_email, send_email_to_user
@@ -185,6 +185,9 @@ async def run_pipeline() -> dict:
                 logger.info(f"Default report sent to env recipients: {extra_emails}")
     except Exception as e:
         logger.error(f"Failed to send default email: {e}")
+
+    if email_sent:
+        await mark_report_email_sent()
 
     pipeline_progress.set_step("done", f"推送 {total_pushed} 个项目，{len(users)} 位用户")
     return {"status": "success", "total": total_scraped, "pushed": total_pushed, "email": email_sent, "users_notified": len(users)}

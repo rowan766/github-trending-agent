@@ -33,29 +33,29 @@
       </div>
     </el-card>
 
-    <el-row :gutter="16" class="stats-row">
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="never" class="stat-card">
-          <el-statistic title="总报告数" :value="reportStore.list.length">
-            <template #prefix><el-icon><Document /></el-icon></template>
-          </el-statistic>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="never" class="stat-card">
-          <el-statistic title="最近推送项目数" :value="latestCount">
-            <template #prefix><el-icon><TrendCharts /></el-icon></template>
-          </el-statistic>
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :sm="8">
-        <el-card shadow="never" class="stat-card">
-          <el-statistic title="上次运行" :value="lastRunText">
-            <template #prefix><el-icon><Clock /></el-icon></template>
-          </el-statistic>
-        </el-card>
-      </el-col>
-    </el-row>
+    <div class="stats-row">
+      <div class="stat-card stat-reports">
+        <div class="stat-icon-wrap"><el-icon :size="26"><Document /></el-icon></div>
+        <div class="stat-info">
+          <span class="stat-value">{{ reportStore.list.length }}</span>
+          <span class="stat-label">总报告数</span>
+        </div>
+      </div>
+      <div class="stat-card stat-projects">
+        <div class="stat-icon-wrap"><el-icon :size="26"><TrendCharts /></el-icon></div>
+        <div class="stat-info">
+          <span class="stat-value">{{ latestCount }}</span>
+          <span class="stat-label">最近推送项目数</span>
+        </div>
+      </div>
+      <div class="stat-card stat-lastrun">
+        <div class="stat-icon-wrap"><el-icon :size="26"><Clock /></el-icon></div>
+        <div class="stat-info">
+          <span class="stat-value">{{ lastRunText }}</span>
+          <span class="stat-label">上次运行</span>
+        </div>
+      </div>
+    </div>
 
     <el-card shadow="never" class="list-card">
       <template #header>
@@ -64,29 +64,59 @@
           <el-button text :icon="Refresh" @click="reportStore.fetchList()">刷新</el-button>
         </div>
       </template>
-      <el-table :data="reportStore.list" stripe v-loading="reportStore.loading" @row-click="goDetail" class="desktop-table">
-        <el-table-column prop="id" label="ID" width="70" />
-        <el-table-column prop="report_date" label="日期" width="140" />
-        <el-table-column prop="project_count" label="项目数" width="100" align="center">
+      <el-table :data="pagedList" stripe v-loading="reportStore.loading" @row-click="goDetail" class="desktop-table">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="report_date" label="日期" width="130" />
+        <el-table-column prop="project_count" label="项目数" width="90" align="center">
           <template #default="{ row }"><el-tag size="small">{{ row.project_count }} 个</el-tag></template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" />
-        <el-table-column label="操作" width="120" align="center">
+        <el-table-column label="邮件推送" width="100" align="center">
           <template #default="{ row }">
-            <el-button type="primary" link size="small" @click.stop="goDetail(row)">查看详情</el-button>
+            <el-tag :type="row.email_sent ? 'success' : 'info'" size="small" effect="light">
+              {{ row.email_sent ? '✅ 已推送' : '⏳ 未推送' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" />
+        <el-table-column label="操作" width="150" align="center">
+          <template #default="{ row }">
+            <el-button type="primary" link size="small" @click.stop="goDetail(row)">详情</el-button>
+            <el-popconfirm title="确定删除该报告？仅从你的列表中移除" @confirm="handleDelete(row.id)">
+              <template #reference>
+                <el-button type="danger" link size="small" @click.stop>删除</el-button>
+              </template>
+            </el-popconfirm>
           </template>
         </el-table-column>
       </el-table>
       <div class="mobile-list">
-        <div v-for="item in reportStore.list" :key="item.id" class="mobile-report-card" @click="goDetail(item)">
+        <div v-for="item in pagedList" :key="item.id" class="mobile-report-card" @click="goDetail(item)">
           <div class="mobile-report-top">
             <span class="mobile-report-date">{{ item.report_date }}</span>
-            <el-tag size="small">{{ item.project_count }} 个项目</el-tag>
+            <div style="display:flex;gap:6px;align-items:center">
+              <el-tag :type="item.email_sent ? 'success' : 'info'" size="small">
+                {{ item.email_sent ? '✅' : '⏳' }}
+              </el-tag>
+              <el-tag size="small">{{ item.project_count }} 个</el-tag>
+            </div>
           </div>
-          <el-text type="info" size="small">{{ item.created_at }}</el-text>
+          <div class="mobile-report-bottom">
+            <el-text type="info" size="small">{{ item.created_at }}</el-text>
+            <el-button type="danger" link size="small" @click.stop="confirmMobileDelete(item)">删除</el-button>
+          </div>
         </div>
       </div>
       <el-empty v-if="!reportStore.loading && reportStore.list.length === 0" description="暂无报告，点击上方手动触发" />
+      <div v-if="reportStore.list.length > pageSize" class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="currentPage"
+          :page-size="pageSize"
+          :total="reportStore.list.length"
+          layout="prev, pager, next"
+          small
+          background
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -103,7 +133,28 @@ const router = useRouter()
 const reportStore = useReportStore()
 const userStore = useUserStore()
 const triggering = ref(false)
+const currentPage = ref(1)
+const pageSize = 10
 let pollTimer = null
+
+const pagedList = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return reportStore.list.slice(start, start + pageSize)
+})
+
+async function handleDelete(id) {
+  try {
+    await reportStore.removeReport(id)
+    ElMessage.success('已从你的列表中移除')
+  } catch { ElMessage.error('删除失败') }
+}
+
+async function confirmMobileDelete(item) {
+  try {
+    await ElMessageBox.confirm(`确定移除报告「${item.report_date}」？`, '确认', { type: 'warning' })
+    await handleDelete(item.id)
+  } catch { /* cancelled */ }
+}
 
 const isRunning = computed(() => reportStore.pipelineStatus.running)
 const progress = computed(() => reportStore.pipelineStatus.progress || { percentage: 0, step: 'idle', message: '等待中' })
@@ -207,15 +258,45 @@ onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null 
 .step-dot.done::before { background: #f0883e; }
 .step-dot.active { color: #f0883e; font-weight: 600; }
 .step-dot.active::before { background: #f0883e; box-shadow: 0 0 0 3px rgba(240,136,62,0.2); width: 10px; height: 10px; }
-.stats-row { margin-bottom: 16px; }
-.stat-card { text-align: center; margin-bottom: 12px; }
+.stats-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px;
+}
+.stat-card {
+  display: flex; align-items: center; gap: 16px;
+  padding: 20px; border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+.stat-icon-wrap {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.stat-info { display: flex; flex-direction: column; min-width: 0; }
+.stat-value { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.stat-label { font-size: 13px; color: #999; margin-top: 4px; }
+
+/* --- color themes --- */
+.stat-reports { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); }
+.stat-reports .stat-icon-wrap { background: #818cf8; color: #fff; }
+.stat-reports .stat-value { color: #4338ca; }
+
+.stat-projects { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); }
+.stat-projects .stat-icon-wrap { background: #f97316; color: #fff; }
+.stat-projects .stat-value { color: #c2410c; }
+
+.stat-lastrun { background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); }
+.stat-lastrun .stat-icon-wrap { background: #34d399; color: #fff; }
+.stat-lastrun .stat-value { color: #047857; }
 .list-card { margin-bottom: 16px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .el-table { cursor: pointer; }
 .mobile-list { display: none; }
 .mobile-report-card { padding: 14px 0; border-bottom: 1px solid #eee; cursor: pointer; }
 .mobile-report-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.mobile-report-bottom { display: flex; justify-content: space-between; align-items: center; }
 .mobile-report-date { font-weight: 600; font-size: 15px; }
+.pagination-wrap { display: flex; justify-content: center; margin-top: 16px; }
 @media (max-width: 768px) {
   .mobile-list { display: block; }
   .desktop-table { display: none; }
@@ -224,7 +305,11 @@ onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null 
   .trigger-btn { min-width: 110px; height: 36px; font-size: 14px; }
   .progress-steps { flex-wrap: wrap; }
   .step-dot { font-size: 11px; min-width: 40px; }
-  .stat-card { margin-bottom: 8px; }
-  .stat-card :deep(.el-statistic__number) { font-size: 20px; }
+  .stats-row { grid-template-columns: 1fr; gap: 10px; }
+  .stat-card { padding: 14px; gap: 12px; }
+  .stat-icon-wrap { width: 42px; height: 42px; border-radius: 10px; }
+  .stat-icon-wrap .el-icon { font-size: 20px !important; }
+  .stat-value { font-size: 20px; }
+  .stat-label { font-size: 12px; }
 }
 </style>

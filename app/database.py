@@ -197,6 +197,18 @@ async def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_hidden_reports (
+                user_id INTEGER NOT NULL,
+                report_id INTEGER NOT NULL,
+                PRIMARY KEY (user_id, report_id)
+            )
+        """)
+        # 给 daily_reports 添加 email_sent 列（兼容旧库）
+        try:
+            await db.execute("ALTER TABLE daily_reports ADD COLUMN email_sent INTEGER DEFAULT 0")
+        except Exception:
+            pass
         cursor = await db.execute("SELECT 1 FROM users WHERE username = 'admin'")
         if not await cursor.fetchone():
             await db.execute(
@@ -416,9 +428,35 @@ async def get_report_by_id(report_id: int) -> dict | None:
         row = await cursor.fetchone()
         return dict(row) if row else None
 
-async def get_report_history(limit: int = 50) -> list[dict]:
+async def get_report_history(limit: int = 50, user_id: int = None) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT id, report_date, project_count, created_at FROM daily_reports ORDER BY report_date DESC LIMIT ?", (limit,))
+        if user_id:
+            cursor = await db.execute(
+                """SELECT id, report_date, project_count, email_sent, created_at
+                   FROM daily_reports
+                   WHERE id NOT IN (SELECT report_id FROM user_hidden_reports WHERE user_id = ?)
+                   ORDER BY report_date DESC LIMIT ?""", (user_id, limit))
+        else:
+            cursor = await db.execute(
+                "SELECT id, report_date, project_count, email_sent, created_at FROM daily_reports ORDER BY report_date DESC LIMIT ?", (limit,))
         return [dict(row) for row in await cursor.fetchall()]
+
+
+async def hide_report_for_user(user_id: int, report_id: int) -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            await db.execute(
+                "INSERT INTO user_hidden_reports (user_id, report_id) VALUES (?, ?)",
+                (user_id, report_id))
+            await db.commit()
+            return True
+        except aiosqlite.IntegrityError:
+            return True
+
+
+async def mark_report_email_sent(report_date: str = None):
+    today = report_date or date.today().isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE daily_reports SET email_sent = 1 WHERE report_date = ?", (today,))
+        await db.commit()
