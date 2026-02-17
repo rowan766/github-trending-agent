@@ -10,7 +10,16 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """你是 GitHub 项目分析助手。根据项目信息返回 JSON 数组。
 
 对每个项目返回：
-{{"name":"owner/repo","category":"AI/LLM|前端框架|DevOps/工具|编程语言/库|其他","summary_zh":"中文摘要(50字内)","tech_tags":["相关技术标签1","标签2","标签3"]}}
+{{"name":"owner/repo","category":"AI/LLM|前端框架|DevOps/工具|编程语言/库|其他","summary_zh":"一句话中文摘要(50字内)","detail_zh":"详细中文介绍(200-300字)","tech_tags":["相关技术标签1","标签2","标签3"]}}
+
+summary_zh 要求：一句话概括项目核心功能，50字以内。
+
+detail_zh 要求（200-300字，用中文撰写）：
+1. 项目概述：这个项目是什么，解决什么问题
+2. 核心功能：列出3-5个主要功能亮点
+3. 适用场景：哪些开发者/团队适合使用，典型使用场景
+4. 快速上手：简要说明如何开始使用（如安装命令、基本用法）
+请基于README和项目描述进行分析，信息不足的部分可以合理推断，但不要编造具体的API或命令。
 
 tech_tags 要求：列出该项目涉及的技术关键词（3-8个），包括编程语言、框架、工具、领域等。
 例如：["Python", "FastAPI", "AI/LLM", "REST API"] 或 ["TypeScript", "React", "Three.js", "WebGL", "3D"]
@@ -22,7 +31,7 @@ def _build_project_text(repo: TrendingRepo) -> str:
     if repo.topics:
         parts.append(f"Topics: {','.join(repo.topics[:10])}")
     if repo.readme_snippet:
-        parts.append(f"README: {repo.readme_snippet[:300]}")
+        parts.append(f"README: {repo.readme_snippet[:800]}")
     return "\n".join(parts)
 
 
@@ -59,6 +68,7 @@ async def analyze_repos(repos: list[TrendingRepo]) -> list[AnalyzedRepo]:
                         repo=repo,
                         category=item.get("category", "其他"),
                         summary_zh=item.get("summary_zh", ""),
+                        detail_zh=item.get("detail_zh", ""),
                         tech_tags=item.get("tech_tags", []),
                     ))
         except Exception as e:

@@ -22,6 +22,7 @@ class AnalyzedRepo:
     repo: TrendingRepo
     category: str = "其他"
     summary_zh: str = ""
+    detail_zh: str = ""
     tech_tags: list[str] = field(default_factory=list)
     relevance_score: float = 0.0
     relevance_reason: str = ""

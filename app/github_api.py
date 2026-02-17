@@ -25,7 +25,7 @@ async def enrich_repo(repo: TrendingRepo, token: str = "") -> TrendingRepo:
                 headers={**headers, "Accept": "application/vnd.github.raw"}
             )
             if resp.status_code == 200:
-                repo.readme_snippet = resp.text[:500]
+                repo.readme_snippet = resp.text[:2000]
         except Exception as e:
             logger.warning(f"Failed to enrich {repo.name}: {e}")
     return repo

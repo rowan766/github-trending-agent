@@ -65,7 +65,7 @@ def _serialize_analyzed(analyzed_by_type: dict) -> str:
                 "stars": a.repo.stars, "stars_today": a.repo.stars_today,
                 "forks": a.repo.forks, "topics": a.repo.topics,
                 "readme_snippet": a.repo.readme_snippet,
-                "category": a.category, "summary_zh": a.summary_zh,
+                "category": a.category, "summary_zh": a.summary_zh, "detail_zh": a.detail_zh,
                 "tech_tags": a.tech_tags,
                 "relevance_score": a.relevance_score,
                 "relevance_reason": a.relevance_reason,
