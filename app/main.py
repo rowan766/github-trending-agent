@@ -14,17 +14,20 @@ from app.database import (
     init_db, get_latest_report, get_report_history, get_report_by_id,
     get_tech_stack, set_tech_stack, get_user_tech_stack, set_user_tech_stack,
     create_user, get_user_by_username, get_user_by_id, list_users, update_user, delete_user,
-    get_preset_types, set_preset_types, has_today_report,
+    get_preset_types, set_preset_types, has_today_report, has_today_email_sent,
     create_feedback, list_feedback, reply_feedback,
     hide_report_for_user,
 )
 from app.pipeline import run_pipeline, pipeline_progress
+from datetime import date
 import os
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
 pipeline_status = {"running": False, "last_result": None}
+# 普通用户每日手动触发计数：{user_id: {"date": "2025-01-01", "count": 1}}
+user_trigger_count: dict[int, dict] = {}
 
 
 async def scheduled_job():
@@ -237,6 +240,25 @@ async def status(user: dict = Depends(get_current_user)):
 async def trigger(bg: BackgroundTasks, user: dict = Depends(get_current_user)):
     if pipeline_status["running"]:
         return {"status": "already_running"}
+
+    # 管理员不限制
+    if user.get("role") != "admin":
+        uid = int(user["sub"])
+        today = date.today().isoformat()
+        # 重置非当天的计数
+        if user_trigger_count.get(uid, {}).get("date") != today:
+            user_trigger_count[uid] = {"date": today, "count": 0}
+
+        email_sent = await has_today_email_sent()
+        count = user_trigger_count[uid]["count"]
+
+        if email_sent and count >= 1:
+            return {"status": "limit_reached", "message": "今日已有邮件推送，且已额外触发过一次，无法再次触发"}
+        if not email_sent and count >= 1:
+            return {"status": "limit_reached", "message": "今日已触发过，请等待任务完成"}
+
+        user_trigger_count[uid]["count"] += 1
+
     bg.add_task(scheduled_job)
     return {"status": "triggered"}
 
@@ -273,11 +295,6 @@ async def report_html(report_id: int):
 @app.get("/")
 async def root():
     return {"status": "ok", "web": "/web/"}
-
-@app.post("/trigger")
-async def trigger_legacy(bg: BackgroundTasks):
-    bg.add_task(scheduled_job)
-    return {"status": "triggered"}
 
 @app.get("/latest", response_class=HTMLResponse)
 async def latest():

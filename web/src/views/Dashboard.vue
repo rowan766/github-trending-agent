@@ -217,6 +217,7 @@ async function handleTrigger() {
   try {
     const result = await reportStore.trigger()
     if (result.status === 'already_running') ElMessage.warning('任务正在运行中')
+    else if (result.status === 'limit_reached') ElMessage.warning(result.message || '今日触发次数已达上限')
     else { ElMessage.success('已触发，请稍候...'); startPoll() }
   } catch { ElMessage.error('触发失败') }
   finally { triggering.value = false }

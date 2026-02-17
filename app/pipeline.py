@@ -98,15 +98,21 @@ async def run_pipeline() -> dict:
         pipeline_progress.update(100, "done", "无数据")
         return {"status": "no_data"}
 
-    # Step 2: 去重
+    # Step 2: 去重（仅 daily 去重，weekly/monthly 保留完整榜单避免空列表）
     pipeline_progress.set_step("dedup", f"共 {total_scraped} 个项目")
     logger.info("Step 2: Dedup...")
     fresh_by_type = {}
     total_fresh = 0
     for t, repos in multi.items():
-        fresh = [r for r in repos if not await is_recently_pushed(r.name, settings.dedup_days)]
+        if t == "daily":
+            fresh = [r for r in repos if not await is_recently_pushed(r.name, settings.dedup_days)]
+        else:
+            fresh = repos
         fresh_by_type[t] = fresh[:settings.max_projects]
         total_fresh += len(fresh_by_type[t])
+
+    for t in fresh_by_type:
+        logger.info(f"  {t}: {len(fresh_by_type[t])} repos after dedup")
 
     if total_fresh == 0:
         pipeline_progress.update(100, "done", "全部已推送")
@@ -145,8 +151,9 @@ async def run_pipeline() -> dict:
     report_json = _serialize_analyzed(default_scored)
     await save_report(default_html, report_json, total_pushed)
 
-    all_pushed_names = list({r.name for repos in fresh_by_type.values() for r in repos if r.name in analyzed_map})
-    await mark_pushed(all_pushed_names)
+    # 只标记 daily 项目为已推送，weekly/monthly 不写入去重表
+    daily_pushed_names = list({r.name for r in fresh_by_type.get("daily", []) if r.name in analyzed_map})
+    await mark_pushed(daily_pushed_names)
 
     # Step 6: 为每个用户生成个性化报告并发送邮件
     pipeline_progress.set_step("email")

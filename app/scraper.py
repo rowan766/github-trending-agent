@@ -52,23 +52,36 @@ async def fetch_trending(languages: list[str], since: str = "daily") -> list[Tre
     urls += [f"{BASE_URL}/{lang}?since={since}" for lang in languages]
     async with httpx.AsyncClient(headers=HEADERS, timeout=30, follow_redirects=True) as client:
         for url in urls:
-            try:
-                resp = await client.get(url)
-                resp.raise_for_status()
-                for repo in _parse_trending_page(resp.text):
-                    if repo.name not in all_repos:
-                        all_repos[repo.name] = repo
-                await asyncio.sleep(random.uniform(1, 2))
-            except Exception as e:
-                logger.warning(f"Failed to fetch {url}: {e}")
+            for attempt in range(3):
+                try:
+                    resp = await client.get(url)
+                    if resp.status_code == 429:
+                        wait = 10 * (attempt + 1)
+                        logger.warning(f"Rate limited on {url}, waiting {wait}s (attempt {attempt + 1}/3)")
+                        await asyncio.sleep(wait)
+                        continue
+                    resp.raise_for_status()
+                    for repo in _parse_trending_page(resp.text):
+                        if repo.name not in all_repos:
+                            all_repos[repo.name] = repo
+                    break
+                except Exception as e:
+                    if attempt < 2:
+                        logger.warning(f"Failed to fetch {url} (attempt {attempt + 1}/3): {e}")
+                        await asyncio.sleep(random.uniform(3, 5))
+                    else:
+                        logger.warning(f"Failed to fetch {url} after 3 attempts: {e}")
+            await asyncio.sleep(random.uniform(1, 2))
     logger.info(f"Scraped {len(all_repos)} unique repos (since={since})")
     return list(all_repos.values())
 
 
 async def fetch_trending_multi(languages: list[str]) -> dict[str, list[TrendingRepo]]:
-    """\u6293\u53d6 daily/weekly/monthly \u4e09\u4e2a\u7ef4\u5ea6"""
+    """抓取 daily/weekly/monthly 三个维度"""
     result = {}
     for since in ["daily", "weekly", "monthly"]:
         result[since] = await fetch_trending(languages, since)
         logger.info(f"  {since}: {len(result[since])} repos")
+        # 时间段之间额外等待，避免 GitHub 限流导致 weekly/monthly 拿不到数据
+        await asyncio.sleep(random.uniform(3, 5))
     return result

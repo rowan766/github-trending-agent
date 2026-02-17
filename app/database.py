@@ -414,6 +414,13 @@ async def has_today_report() -> bool:
         cursor = await db.execute("SELECT 1 FROM daily_reports WHERE report_date = ?", (date.today().isoformat(),))
         return await cursor.fetchone() is not None
 
+async def has_today_email_sent() -> bool:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT 1 FROM daily_reports WHERE report_date = ? AND email_sent = 1",
+            (date.today().isoformat(),))
+        return await cursor.fetchone() is not None
+
 async def get_latest_report() -> dict | None:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
