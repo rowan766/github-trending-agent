@@ -17,7 +17,9 @@
             <el-tag :type="row.role === 'admin' ? 'danger' : 'info'" size="small">{{ row.role === 'admin' ? '管理员' : '用户' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="170" />
+        <el-table-column prop="created_at" label="创建时间" width="170">
+          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="150" align="center">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="openEdit(row)">编辑</el-button>
@@ -46,7 +48,7 @@
             </div>
           </div>
           <el-text v-if="row.email" type="info" size="small" class="mobile-user-email">{{ row.email }}</el-text>
-          <el-text type="info" size="small">{{ row.created_at }}</el-text>
+          <el-text type="info" size="small">{{ formatTime(row.created_at) }}</el-text>
         </div>
       </div>
     </el-card>
@@ -96,6 +98,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { getUsers, createUser, updateUser, deleteUser } from '../api'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { formatTime } from '../utils/format'
 
 const users = ref([])
 const loading = ref(false)

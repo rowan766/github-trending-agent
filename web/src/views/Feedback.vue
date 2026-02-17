@@ -34,7 +34,7 @@
             <el-tag size="small" :type="fb.status === 'replied' ? 'success' : 'info'">
               {{ fb.status === 'replied' ? '已回复' : '待回复' }}
             </el-tag>
-            <el-text type="info" size="small">{{ fb.created_at }}</el-text>
+            <el-text type="info" size="small">{{ formatTime(fb.created_at) }}</el-text>
           </div>
           <p class="fb-content">{{ fb.content }}</p>
           <div v-if="fb.reply" class="fb-reply">
@@ -74,6 +74,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { submitFeedback, getMyFeedback } from '../api'
 import { ElMessage } from 'element-plus'
 import { ChatDotRound, Iphone, Wallet } from '@element-plus/icons-vue'
+import { formatTime } from '../utils/format'
 
 const form = reactive({ type: 'suggestion', content: '' })
 const submitting = ref(false)

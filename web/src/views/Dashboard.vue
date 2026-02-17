@@ -79,7 +79,9 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" />
+        <el-table-column prop="created_at" label="创建时间">
+          <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="150" align="center">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click.stop="goDetail(row)">详情</el-button>
@@ -103,7 +105,7 @@
             </div>
           </div>
           <div class="mobile-report-bottom">
-            <el-text type="info" size="small">{{ item.created_at }}</el-text>
+            <el-text type="info" size="small">{{ formatTime(item.created_at) }}</el-text>
             <el-button type="danger" link size="small" @click.stop="confirmMobileDelete(item)">删除</el-button>
           </div>
         </div>
@@ -130,6 +132,7 @@ import { useReportStore } from '../stores/report'
 import { useUserStore } from '../stores/user'
 import { Refresh, Document, TrendCharts, Clock, Loading, Promotion, SuccessFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatTime } from '../utils/format'
 
 const router = useRouter()
 const reportStore = useReportStore()
