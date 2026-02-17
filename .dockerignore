@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.env
+data/
+.venv/
+.git/
+*.egg-info/
+dist/
+app/static/
+web/node_modules/
+web/dist/
+*.md
+.gitignore
+CLAUDE.md
