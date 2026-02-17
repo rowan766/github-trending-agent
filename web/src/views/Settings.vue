@@ -27,17 +27,17 @@
           </div>
           <div class="direction-tags" @click="openDetail(index)">
             <el-tag
-              v-for="tag in dir.tags.slice(0, 6)"
+              v-for="tag in (dir.tags || []).slice(0, 6)"
               :key="tag"
               size="small"
               :type="dir.enabled ? '' : 'info'"
               effect="plain"
               class="tag-item"
             >{{ tag }}</el-tag>
-            <el-tag v-if="dir.tags.length > 6" size="small" type="warning" effect="plain" class="tag-item tag-more">
+            <el-tag v-if="(dir.tags || []).length > 6" size="small" type="warning" effect="plain" class="tag-item tag-more">
               +{{ dir.tags.length - 6 }} 点击查看全部
             </el-tag>
-            <el-tag v-if="dir.tags.length === 0" size="small" type="info" effect="plain" class="tag-item">
+            <el-tag v-if="(dir.tags || []).length === 0" size="small" type="info" effect="plain" class="tag-item">
               暂无标签，点击添加
             </el-tag>
           </div>

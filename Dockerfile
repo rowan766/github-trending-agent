@@ -20,8 +20,5 @@ COPY app/ app/
 # 复制前端构建产物到后端静态目录（vite outDir: ../app/static → /app/static）
 COPY --from=frontend /app/static app/static/
 
-# 持久化数据目录
-RUN mkdir -p /app/data
-
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

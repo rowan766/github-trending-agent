@@ -12,24 +12,23 @@
 - APScheduler 定时任务，每天自动执行
 - Docker Compose 一键部署
 
-## 快速开始（本地开发）
+## 快速开始（本地 Docker Desktop）
 
 ```bash
 git clone https://github.com/rowan766/github-trending-agent.git
 cd github-trending-agent
 cp .env.example .env  # 编辑填入配置
 
-# 启动后端
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+# 一键启动（PostgreSQL + Redis + 应用）
+docker compose up -d --build
 
-# 启动前端（另一个终端）
-cd web
-pnpm install
-pnpm run dev
+# 查看日志
+docker compose logs -f
 ```
 
-> 删除 `data/trending.db` 后重启服务，会自动重建表结构并创建默认管理员账号（admin / admin123）。
+首次启动后访问 `http://localhost:8000/web/`，默认管理员账号 `admin` / `admin123`。
+
+> 数据库重置：`docker compose down -v` 删除数据卷后重新启动，会自动重建表结构并创建默认管理员账号。
 
 ---
 
@@ -224,7 +223,7 @@ RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com
 | 容器启动后无法访问 | 检查阿里云安全组是否开放 8000 端口 |
 | 邮件发送失败 | 确认 SMTP 授权码正确，QQ 邮箱需开启 SMTP 服务 |
 | GitHub 抓取被限流 | 配置 `GITHUB_TOKEN` 提高 API 限额 |
-| 数据库重置 | 删除 `data/trending.db` 后重启容器即可 |
+| 数据库重置 | `docker compose down -v` 删除数据卷后重新启动 |
 
 ---
 

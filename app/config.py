@@ -18,9 +18,12 @@ class Settings(BaseSettings):
     trending_since: str = "daily"
     max_projects: int = 25
     dedup_days: int = 7
+    database_url: str = "postgresql://trending:trending_secret@localhost:5432/trending"
+    redis_url: str = "redis://localhost:6379/0"
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 
 @lru_cache

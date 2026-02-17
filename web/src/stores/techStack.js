@@ -10,7 +10,10 @@ export const useTechStackStore = defineStore('techStack', () => {
     loading.value = true
     try {
       const res = await getTechStack()
-      directions.value = res.data
+      directions.value = (res.data || []).map(d => ({
+        ...d,
+        tags: Array.isArray(d.tags) ? d.tags : [],
+      }))
     } finally { loading.value = false }
   }
 

@@ -11,12 +11,19 @@ from typing import Optional
 from app.config import get_settings
 from app.auth import get_current_user, require_admin, verify_password, create_token
 from app.database import (
-    init_db, get_latest_report, get_report_history, get_report_by_id,
+    init_db, init_pool, close_pool,
+    get_latest_report, get_report_history, get_report_by_id,
     get_tech_stack, set_tech_stack, get_user_tech_stack, set_user_tech_stack,
     create_user, get_user_by_username, get_user_by_id, list_users, update_user, delete_user,
     get_preset_types, set_preset_types, has_today_report, has_today_email_sent,
     create_feedback, list_feedback, reply_feedback,
     hide_report_for_user,
+)
+from app.cache import (
+    init_redis, close_redis,
+    get_pipeline_status, set_pipeline_status,
+    get_pipeline_progress,
+    get_user_trigger_count, increment_user_trigger,
 )
 from app.pipeline import run_pipeline, pipeline_progress
 from datetime import date
@@ -25,36 +32,35 @@ import os
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
-pipeline_status = {"running": False, "last_result": None}
-# 普通用户每日手动触发计数：{user_id: {"date": "2025-01-01", "count": 1}}
-user_trigger_count: dict[int, dict] = {}
 
 
 async def scheduled_job():
-    global pipeline_status
-    pipeline_status["running"] = True
-    pipeline_progress.reset()
+    await set_pipeline_status(True)
+    await pipeline_progress.reset()
     try:
         result = await run_pipeline()
-        pipeline_status["last_result"] = result
+        await set_pipeline_status(False, result)
         logger.info(f"Result: {result}")
     except Exception as e:
-        pipeline_status["last_result"] = {"status": "error", "message": str(e)}
-        pipeline_progress.update(100, "error", f"\u5931\u8d25: {e}")
+        await set_pipeline_status(False, {"status": "error", "message": str(e)})
+        await pipeline_progress.update(100, "error", f"失败: {e}")
         logger.error(f"Job failed: {e}")
-    finally:
-        pipeline_status["running"] = False
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
     settings = get_settings()
+    # Initialize database pool and Redis
+    await init_pool(settings.database_url)
+    await init_redis(settings.redis_url)
+    await init_db()
     scheduler.add_job(scheduled_job, "cron", hour=settings.cron_hour, minute=settings.cron_minute, id="daily")
     scheduler.start()
     logger.info(f"Scheduler: daily {settings.cron_hour:02d}:{settings.cron_minute:02d} CST")
     yield
     scheduler.shutdown()
+    await close_pool()
+    await close_redis()
 
 
 app = FastAPI(title="GitHub Trending Agent", lifespan=lifespan)
@@ -233,31 +239,36 @@ async def health():
 
 @app.get("/api/status")
 async def status(user: dict = Depends(get_current_user)):
+    ps = await get_pipeline_status()
+    progress = await get_pipeline_progress()
     today_pushed = await has_today_report()
-    return {**pipeline_status, "progress": pipeline_progress.to_dict(), "today_pushed": today_pushed}
+    return {**ps, "progress": progress, "today_pushed": today_pushed}
 
 @app.post("/api/trigger")
 async def trigger(bg: BackgroundTasks, user: dict = Depends(get_current_user)):
-    if pipeline_status["running"]:
+    ps = await get_pipeline_status()
+    if ps["running"]:
         return {"status": "already_running"}
 
     # 管理员不限制
     if user.get("role") != "admin":
         uid = int(user["sub"])
         today = date.today().isoformat()
-        # 重置非当天的计数
-        if user_trigger_count.get(uid, {}).get("date") != today:
-            user_trigger_count[uid] = {"date": today, "count": 0}
+
+        trigger_date, count = await get_user_trigger_count(uid)
+
+        # 日期不同视为 0
+        if trigger_date != today:
+            count = 0
 
         email_sent = await has_today_email_sent()
-        count = user_trigger_count[uid]["count"]
 
         if email_sent and count >= 1:
             return {"status": "limit_reached", "message": "今日已有邮件推送，且已额外触发过一次，无法再次触发"}
         if not email_sent and count >= 1:
             return {"status": "limit_reached", "message": "今日已触发过，请等待任务完成"}
 
-        user_trigger_count[uid]["count"] += 1
+        await increment_user_trigger(uid, today)
 
     bg.add_task(scheduled_job)
     return {"status": "triggered"}
@@ -274,8 +285,9 @@ async def report_detail(report_id: int, user: dict = Depends(get_current_user)):
     if not report:
         raise HTTPException(404)
     result = dict(report)
+    # JSONB columns are auto-deserialized, no need for json.loads
     if result.get("report_json"):
-        result["projects"] = json.loads(result["report_json"])
+        result["projects"] = result["report_json"]
     return result
 
 @app.delete("/api/reports/{report_id}")
@@ -300,7 +312,7 @@ async def root():
 async def latest():
     report = await get_latest_report()
     if not report:
-        return HTMLResponse("<h1>\u6682\u65e0\u62a5\u544a</h1>", status_code=404)
+        return HTMLResponse("<h1>暂无报告</h1>", status_code=404)
     return HTMLResponse(report["report_html"])
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")

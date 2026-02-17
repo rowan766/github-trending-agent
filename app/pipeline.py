@@ -10,6 +10,7 @@ from app.database import (
 )
 from app.report import generate_report
 from app.emailer import send_report_email, send_email_to_user
+from app.cache import set_pipeline_progress, get_pipeline_progress
 
 logger = logging.getLogger(__name__)
 
@@ -25,36 +26,29 @@ class PipelineProgress:
         ("done", "完成", 100),
     ]
 
-    def __init__(self):
-        self.reset()
+    async def reset(self):
+        await set_pipeline_progress(0, "idle", "等待中")
 
-    def reset(self):
-        self.percentage = 0
-        self.step = "idle"
-        self.message = "等待中"
+    async def update(self, percentage: int, step: str, message: str):
+        await set_pipeline_progress(percentage, step, message)
 
-    def update(self, percentage: int, step: str, message: str):
-        self.percentage = percentage
-        self.step = step
-        self.message = message
-
-    def set_step(self, step_key: str, detail: str = ""):
+    async def set_step(self, step_key: str, detail: str = ""):
         for key, label, pct in self.STEPS:
             if key == step_key:
                 msg = f"{label}{'...' if pct < 100 else ''}"
                 if detail:
                     msg += f" ({detail})"
-                self.update(pct, key, msg)
+                await self.update(pct, key, msg)
                 return
 
-    def to_dict(self):
-        return {"percentage": self.percentage, "step": self.step, "message": self.message}
+    async def to_dict(self):
+        return await get_pipeline_progress()
 
 
 pipeline_progress = PipelineProgress()
 
 
-def _serialize_analyzed(analyzed_by_type: dict) -> str:
+def _serialize_analyzed(analyzed_by_type: dict) -> dict:
     result = {}
     for trending_type, analyzed_list in analyzed_by_type.items():
         items = []
@@ -73,7 +67,7 @@ def _serialize_analyzed(analyzed_by_type: dict) -> str:
                 "trending_type": trending_type,
             })
         result[trending_type] = items
-    return json.dumps(result, ensure_ascii=False)
+    return result
 
 
 def _score_by_type(analyzed_map: dict, fresh_by_type: dict, tech_stack: list[dict]) -> dict:
@@ -90,16 +84,16 @@ async def run_pipeline() -> dict:
     languages = [l.strip() for l in settings.trending_languages.split(",")]
 
     # Step 1: 抓取
-    pipeline_progress.set_step("scraping", "daily + weekly + monthly")
+    await pipeline_progress.set_step("scraping", "daily + weekly + monthly")
     logger.info("Step 1: Scraping (daily/weekly/monthly)...")
     multi = await fetch_trending_multi(languages)
     total_scraped = sum(len(v) for v in multi.values())
     if total_scraped == 0:
-        pipeline_progress.update(100, "done", "无数据")
+        await pipeline_progress.update(100, "done", "无数据")
         return {"status": "no_data"}
 
     # Step 2: 去重（仅 daily 去重，weekly/monthly 保留完整榜单避免空列表）
-    pipeline_progress.set_step("dedup", f"共 {total_scraped} 个项目")
+    await pipeline_progress.set_step("dedup", f"共 {total_scraped} 个项目")
     logger.info("Step 2: Dedup...")
     fresh_by_type = {}
     total_fresh = 0
@@ -115,7 +109,7 @@ async def run_pipeline() -> dict:
         logger.info(f"  {t}: {len(fresh_by_type[t])} repos after dedup")
 
     if total_fresh == 0:
-        pipeline_progress.update(100, "done", "全部已推送")
+        await pipeline_progress.update(100, "done", "全部已推送")
         return {"status": "all_deduped"}
 
     # Step 3: 补充信息（去重后只处理唯一项目）
@@ -125,7 +119,7 @@ async def run_pipeline() -> dict:
             if r.name not in all_unique:
                 all_unique[r.name] = r
     unique_list = list(all_unique.values())
-    pipeline_progress.set_step("enriching", f"{len(unique_list)} 个项目")
+    await pipeline_progress.set_step("enriching", f"{len(unique_list)} 个项目")
     logger.info(f"Step 3: Enriching {len(unique_list)} unique repos...")
     enriched_list = await enrich_repos(unique_list, settings.github_token)
     enriched_map = {r.name: r for r in enriched_list}
@@ -133,7 +127,7 @@ async def run_pipeline() -> dict:
         fresh_by_type[t] = [enriched_map[r.name] for r in fresh_by_type[t] if r.name in enriched_map]
 
     # Step 4: LLM 分析（只做一次，不含个性化评分）
-    pipeline_progress.set_step("analyzing", f"{len(enriched_list)} 个项目")
+    await pipeline_progress.set_step("analyzing", f"{len(enriched_list)} 个项目")
     logger.info("Step 4: Analyzing (no personalization)...")
     analyzed_all = await analyze_repos(enriched_list)
     analyzed_map = {a.repo.name: a for a in analyzed_all}
@@ -144,7 +138,7 @@ async def run_pipeline() -> dict:
     )
 
     # Step 5: 生成通用报告（用默认技术栈评分，供 Web 端查看）
-    pipeline_progress.set_step("report")
+    await pipeline_progress.set_step("report")
     logger.info("Step 5: Generating default report for web...")
     default_scored = _score_by_type(analyzed_map, fresh_by_type, DEFAULT_TECH_STACK)
     default_html = generate_report(default_scored, total_scraped, total_scraped - total_fresh)
@@ -156,7 +150,7 @@ async def run_pipeline() -> dict:
     await mark_pushed(daily_pushed_names)
 
     # Step 6: 为每个用户生成个性化报告并发送邮件
-    pipeline_progress.set_step("email")
+    await pipeline_progress.set_step("email")
     logger.info("Step 6: Sending personalized emails...")
     email_sent = False
     users = await get_users_for_email()
@@ -196,5 +190,5 @@ async def run_pipeline() -> dict:
     if email_sent:
         await mark_report_email_sent()
 
-    pipeline_progress.set_step("done", f"推送 {total_pushed} 个项目，{len(users)} 位用户")
+    await pipeline_progress.set_step("done", f"推送 {total_pushed} 个项目，{len(users)} 位用户")
     return {"status": "success", "total": total_scraped, "pushed": total_pushed, "email": email_sent, "users_notified": len(users)}

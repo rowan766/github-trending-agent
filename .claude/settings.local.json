@@ -3,7 +3,12 @@
     "allow": [
       "Bash(xargs:*)",
       "Bash(pushd:*)",
-      "Bash(pnpm run build:*)"
+      "Bash(pnpm run build:*)",
+      "Bash(docker compose down:*)",
+      "Bash(docker compose up:*)",
+      "Bash(curl:*)",
+      "Bash(docker compose:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwidXNlcm5hbWUiOiJhZG1pbiIsInJvbGUiOiJhZG1pbiIsImV4cCI6MTc3MTU5MDc4NH0.C62XhxsoUUTLBAyR79KpvbQOfa1Iax79m_Ezh4DBF8Y\")"
     ]
   }
 }

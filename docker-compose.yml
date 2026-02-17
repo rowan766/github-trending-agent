@@ -1,17 +1,56 @@
 version: "3.8"
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: trending-postgres
+    environment:
+      POSTGRES_USER: trending
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trending_secret}
+      POSTGRES_DB: trending
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trending"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: trending-redis
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   trending-agent:
     build: .
     container_name: github-trending-agent
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
       - ./.env:/app/.env:ro
-    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - TZ=Asia/Shanghai
+      - DATABASE_URL=postgresql://trending:${POSTGRES_PASSWORD:-trending_secret}@postgres:5432/trending
+      - REDIS_URL=redis://redis:6379/0
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
@@ -23,3 +62,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+volumes:
+  pgdata:
+  redisdata:
