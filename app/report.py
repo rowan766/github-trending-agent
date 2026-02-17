@@ -54,12 +54,18 @@ def generate_report(analyzed_by_type: dict, total_scraped: int, skipped_count: i
     weekly = analyzed_by_type.get("weekly", [])
     monthly = analyzed_by_type.get("monthly", [])
 
-    # 合并所有项目，按 repo.name 去重，按总星数降序
+    # 合并所有项目，按 repo.name 去重，按总星数降序，取 Top 10
     seen = {}
     for item in daily + weekly + monthly:
         if item.repo.name not in seen:
             seen[item.repo.name] = item
-    hottest = sorted(seen.values(), key=lambda x: x.repo.stars, reverse=True)
+    hottest = sorted(seen.values(), key=lambda x: x.repo.stars, reverse=True)[:10]
+
+    # 各维度去掉已在"最热项目"中出现的，避免重复渲染导致邮件过大被截断
+    hottest_names = {item.repo.name for item in hottest}
+    daily = [item for item in daily if item.repo.name not in hottest_names]
+    weekly = [item for item in weekly if item.repo.name not in hottest_names]
+    monthly = [item for item in monthly if item.repo.name not in hottest_names]
 
     return Template(EMAIL_TEMPLATE).render(
         report_date=date.today().strftime("%Y-%m-%d"),
