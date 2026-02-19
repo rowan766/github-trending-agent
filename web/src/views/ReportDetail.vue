@@ -68,9 +68,10 @@ const projectsData = computed(() => {
   return { daily: p.daily || [], weekly: p.weekly || [], monthly: p.monthly || [] }
 })
 
-const dailyProjects = computed(() => projectsData.value.daily)
-const weeklyProjects = computed(() => projectsData.value.weekly)
-const monthlyProjects = computed(() => projectsData.value.monthly)
+// 今日/本周/本月按增星量排序
+const dailyProjects = computed(() => [...projectsData.value.daily].sort((a, b) => b.stars_today - a.stars_today))
+const weeklyProjects = computed(() => [...projectsData.value.weekly].sort((a, b) => b.stars_today - a.stars_today))
+const monthlyProjects = computed(() => [...projectsData.value.monthly].sort((a, b) => b.stars_today - a.stars_today))
 
 // “最热” = 所有项目按总星数排序
 const allByStars = computed(() => {

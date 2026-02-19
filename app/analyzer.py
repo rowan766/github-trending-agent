@@ -125,8 +125,8 @@ def compute_user_scores(analyzed_list: list[AnalyzedRepo], user_directions: list
         item.highlight = len(matched_directions) > 0
         item.relevance_score = min(10, 4 + len(matched_directions) * 2) if matched_directions else 1
         item.relevance_reason = f"匹配: {', '.join(sorted(matched_directions)[:3])}" if matched_directions else ""
-        item.final_score = item.repo.stars  # 排序纯按星数
+        item.final_score = item.repo.stars_today  # 排序按增星量
         results.append(item)
 
-    results.sort(key=lambda x: x.repo.stars, reverse=True)
+    results.sort(key=lambda x: x.repo.stars_today, reverse=True)
     return results
