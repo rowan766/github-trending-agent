@@ -38,7 +38,7 @@ services:
     build: .
     container_name: github-trending-agent
     ports:
-      - "8000:8000"
+      - "8200:8000"
     volumes:
       - ./.env:/app/.env:ro
     depends_on:
