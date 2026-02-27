@@ -22,6 +22,8 @@ export const login = (data) => api.post('/auth/login', data)
 export const register = (data) => api.post('/auth/register', data)
 export const getMe = () => api.get('/auth/me')
 export const updateProfile = (data) => api.put('/auth/profile', data)
+export const sendEmailCode = (email) => api.post('/auth/send-email-code', { email })
+export const verifyEmailCode = (email, code) => api.post('/auth/verify-email-code', { email, code })
 
 // Pipeline
 export const getHealth = () => api.get('/health')

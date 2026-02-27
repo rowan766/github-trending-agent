@@ -117,3 +117,41 @@ async def invalidate_report_cache(report_id: int = None):
     if report_id:
         await r.delete(f"report:{report_id}")
     await r.delete("report:latest")
+
+
+# ---- Email Verification Codes ----
+
+async def set_email_code(email: str, code: str, ttl: int = 600):
+    """Store email verification code with 10-minute TTL."""
+    r = get_redis()
+    await r.set(f"email:code:{email}", code, ex=ttl)
+
+
+async def get_email_code(email: str) -> str | None:
+    """Get stored verification code for email."""
+    r = get_redis()
+    return await r.get(f"email:code:{email}")
+
+
+async def delete_email_code(email: str):
+    """Delete verification code after successful use."""
+    r = get_redis()
+    await r.delete(f"email:code:{email}")
+
+
+async def set_email_verified(user_id: int, email: str, ttl: int = 300):
+    """Mark email as verified for a user (5-minute TTL to complete profile save)."""
+    r = get_redis()
+    await r.set(f"email:verified:{user_id}:{email}", "1", ex=ttl)
+
+
+async def get_email_verified(user_id: int, email: str) -> bool:
+    """Check if email has been verified for user."""
+    r = get_redis()
+    return await r.exists(f"email:verified:{user_id}:{email}") > 0
+
+
+async def clear_email_verified(user_id: int, email: str):
+    """Clear email verified flag after it has been used."""
+    r = get_redis()
+    await r.delete(f"email:verified:{user_id}:{email}")

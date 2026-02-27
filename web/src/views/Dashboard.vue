@@ -72,11 +72,13 @@
         <el-table-column prop="project_count" label="项目数" width="90" align="center">
           <template #default="{ row }"><el-tag size="small">{{ row.project_count }} 个</el-tag></template>
         </el-table-column>
-        <el-table-column label="邮件推送" width="100" align="center">
+        <el-table-column label="当日推送" width="110" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.email_sent ? 'success' : 'info'" size="small" effect="light">
-              {{ row.email_sent ? '✅ 已推送' : '⏳ 未推送' }}
-            </el-tag>
+            <el-tooltip :content="emailTooltip(row)" placement="top" :show-after="300">
+              <el-tag :type="emailTagType(row)" size="small" effect="light">
+                {{ emailTagText(row) }}
+              </el-tag>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间">
@@ -98,8 +100,8 @@
           <div class="mobile-report-top">
             <span class="mobile-report-date">{{ item.report_date }}</span>
             <div style="display:flex;gap:6px;align-items:center">
-              <el-tag :type="item.email_sent ? 'success' : 'info'" size="small">
-                {{ item.email_sent ? '✅' : '⏳' }}
+              <el-tag :type="emailTagType(item)" size="small">
+                {{ emailTagText(item) }}
               </el-tag>
               <el-tag size="small">{{ item.project_count }} 个</el-tag>
             </div>
@@ -243,6 +245,29 @@ function startPoll() {
 }
 
 function goDetail(row) { router.push(`/report/${row.id}`) }
+
+// 当日推送状态：区分"注册前"/"已推送"/"未推送"
+// email_sent 是系统级全局标志（当天是否向订阅用户发了邮件），与具体用户无关
+// 若报告日期早于当前用户注册日期，显示"—"
+function userRegDate() {
+  const ca = userStore.user?.created_at
+  return ca ? ca.slice(0, 10) : null
+}
+function emailTagType(row) {
+  const reg = userRegDate()
+  if (reg && row.report_date < reg) return 'info'
+  return row.email_sent ? 'success' : 'warning'
+}
+function emailTagText(row) {
+  const reg = userRegDate()
+  if (reg && row.report_date < reg) return '— 注册前'
+  return row.email_sent ? '✅ 已推送' : '⏳ 未推送'
+}
+function emailTooltip(row) {
+  const reg = userRegDate()
+  if (reg && row.report_date < reg) return '该报告生成于你注册之前，未向你推送'
+  return row.email_sent ? '当日已向所有订阅用户发送邮件' : '当日未发送邮件推送'
+}
 
 onMounted(async () => {
   reportStore.fetchList()

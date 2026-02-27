@@ -12,6 +12,38 @@
 - APScheduler 定时任务，每天自动执行
 - Docker Compose 一键部署
 
+## 本地开发启动
+
+> 适合修改代码、调试 bug，前后端分别热重载。
+
+### 前提
+
+- Python 3.10+，已安装依赖：`pip install -r requirements.txt`
+- Node.js + pnpm，已安装依赖：`cd web && pnpm install`
+- 项目根目录存在 `.env` 文件（参考下方配置说明）
+
+### 启动步骤
+
+**终端 1 — 后端（FastAPI，端口 8000）：**
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+**终端 2 — 前端（Vite，端口 3000）：**
+
+```bash
+cd web
+pnpm run dev
+```
+
+启动后访问 `http://localhost:3000`，前端会自动将 `/api` 请求代理到后端 8000 端口。
+
+> 数据库首次启动自动创建，默认管理员账号：`admin` / `admin123`。
+> 如需重置数据库，删除 `data/trending.db` 后重启后端即可。
+
+---
+
 ## 快速开始（本地 Docker Desktop）
 
 ```bash

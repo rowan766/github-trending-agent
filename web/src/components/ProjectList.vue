@@ -206,5 +206,10 @@ function openGithub(url) {
   .project-reason { font-size: 12px; }
   .project-desc { font-size: 12px; }
   .project-topics .el-tag { font-size: 11px; }
+  .detail-repo-link { font-size: 16px; word-break: break-all; }
+  .detail-readme { max-height: 150px; }
 }
+/* 移动端弹窗自适应宽度 */
+:global(.project-detail-dialog) { --el-dialog-width: min(680px, 92vw) !important; }
+:global(.project-detail-dialog .el-dialog__body) { padding: 16px 20px; word-break: break-word; overflow-x: hidden; }
 </style>

@@ -1,5 +1,7 @@
 import json
 import logging
+import random
+import re
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -9,6 +11,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from pydantic import BaseModel
 from typing import Optional
 from app.config import get_settings
+
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 from app.auth import get_current_user, require_admin, verify_password, create_token
 from app.database import (
     init_db, init_pool, close_pool,
@@ -24,6 +28,8 @@ from app.cache import (
     get_pipeline_status, set_pipeline_status,
     get_pipeline_progress,
     get_user_trigger_count, increment_user_trigger,
+    set_email_code, get_email_code, delete_email_code,
+    set_email_verified, get_email_verified, clear_email_verified,
 )
 from app.pipeline import run_pipeline, pipeline_progress
 from datetime import date
@@ -86,6 +92,13 @@ class ProfileUpdateReq(BaseModel):
     receive_email: Optional[bool] = None
     password: Optional[str] = None
 
+class SendEmailCodeReq(BaseModel):
+    email: str
+
+class VerifyEmailCodeReq(BaseModel):
+    email: str
+    code: str
+
 
 @app.post("/api/auth/login")
 async def login(req: LoginReq):
@@ -116,12 +129,62 @@ async def me(user: dict = Depends(get_current_user)):
     info.pop("tech_stack", None)
     return info
 
+@app.post("/api/auth/send-email-code")
+async def send_email_code(req: SendEmailCodeReq, user: dict = Depends(get_current_user)):
+    """向指定邮箱发送验证码，用于绑定邮箱前的验证"""
+    from app.emailer import send_verification_code
+    email = req.email.strip()
+    if not EMAIL_RE.match(email):
+        raise HTTPException(400, "邮箱格式不正确")
+    code = str(random.randint(100000, 999999))
+    await set_email_code(email, code)
+    sent = await send_verification_code(email, code)
+    if not sent:
+        raise HTTPException(500, "验证码发送失败，请检查服务器 SMTP 配置")
+    return {"status": "ok", "message": "验证码已发送，请查收邮件"}
+
+
+@app.post("/api/auth/verify-email-code")
+async def verify_email_code_endpoint(req: VerifyEmailCodeReq, user: dict = Depends(get_current_user)):
+    """验证邮箱验证码，验证通过后标记该邮箱为已验证状态（5分钟内有效）"""
+    email = req.email.strip()
+    stored = await get_email_code(email)
+    if not stored or stored != req.code.strip():
+        raise HTTPException(400, "验证码错误或已过期，请重新发送")
+    await delete_email_code(email)
+    await set_email_verified(int(user["sub"]), email)
+    return {"status": "ok", "message": "邮箱验证成功"}
+
+
 @app.put("/api/auth/profile")
 async def update_profile(req: ProfileUpdateReq, user: dict = Depends(get_current_user)):
     user_id = int(user["sub"])
     fields = {}
+
     if req.email is not None:
-        fields["email"] = req.email
+        current_user_info = await get_user_by_id(user_id)
+        current_email = current_user_info.get("email", "") or ""
+        current_addrs = {e.strip() for e in current_email.split(",") if e.strip()}
+
+        new_email_str = req.email.strip()
+        new_addrs = [e.strip() for e in new_email_str.split(",") if e.strip()]
+
+        if new_addrs:
+            # Validate format for all new emails
+            for addr in new_addrs:
+                if not EMAIL_RE.match(addr):
+                    raise HTTPException(400, f"邮箱格式不正确：{addr}")
+
+            # Require verification for each newly added email address
+            for addr in new_addrs:
+                if addr not in current_addrs:
+                    verified = await get_email_verified(user_id, addr)
+                    if not verified:
+                        raise HTTPException(400, f"邮箱 {addr} 尚未验证，请先发送验证码并验证后再保存")
+                    await clear_email_verified(user_id, addr)
+
+        fields["email"] = new_email_str
+
     if req.receive_email is not None:
         fields["receive_email"] = 1 if req.receive_email else 0
     if req.password is not None:
