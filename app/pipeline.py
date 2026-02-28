@@ -1,7 +1,7 @@
 import json
 import logging
 from app.config import get_settings
-from app.scraper import fetch_trending_multi
+from app.scraper import fetch_trending_multi, fetch_by_topics
 from app.github_api import enrich_repos
 from app.analyzer import analyze_repos, compute_user_scores
 from app.database import (
@@ -82,11 +82,17 @@ def _score_by_type(analyzed_map: dict, fresh_by_type: dict, tech_stack: list[dic
 async def run_pipeline() -> dict:
     settings = get_settings()
     languages = [l.strip() for l in settings.trending_languages.split(",")]
+    topics = [t.strip() for t in settings.trending_topics.split(",") if t.strip()]
 
     # Step 1: 抓取
     await pipeline_progress.set_step("scraping", "daily + weekly + monthly")
     logger.info("Step 1: Scraping (daily/weekly/monthly)...")
     multi = await fetch_trending_multi(languages)
+    if topics:
+        logger.info(f"Step 1b: Fetching by topics: {topics}")
+        topic_repos = await fetch_by_topics(topics)
+        logger.info(f"  topics: {len(topic_repos)} repos")
+        multi["topics"] = topic_repos
     total_scraped = sum(len(v) for v in multi.values())
     if total_scraped == 0:
         await pipeline_progress.update(100, "done", "无数据")
@@ -98,7 +104,7 @@ async def run_pipeline() -> dict:
     fresh_by_type = {}
     total_fresh = 0
     for t, repos in multi.items():
-        if t == "daily":
+        if t in ("daily", "topics"):
             fresh = [r for r in repos if not await is_recently_pushed(r.name, settings.dedup_days)]
         else:
             fresh = repos

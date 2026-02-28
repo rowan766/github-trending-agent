@@ -76,6 +76,32 @@ async def fetch_trending(languages: list[str], since: str = "daily") -> list[Tre
     return list(all_repos.values())
 
 
+async def fetch_by_topics(topics: list[str]) -> list[TrendingRepo]:
+    all_repos: dict[str, TrendingRepo] = {}
+    async with httpx.AsyncClient(headers=HEADERS, timeout=30) as client:
+        for topic in topics:
+            url = f"https://api.github.com/search/repositories?q=topic:{topic}&sort=stars&order=desc&per_page=10"
+            try:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                for item in resp.json().get("items", []):
+                    name = item["full_name"]
+                    if name not in all_repos:
+                        all_repos[name] = TrendingRepo(
+                            name=name,
+                            url=item["html_url"],
+                            description=item.get("description") or "",
+                            language=item.get("language") or "",
+                            stars=item["stargazers_count"],
+                            stars_today=0,
+                            forks=item["forks_count"],
+                        )
+                await asyncio.sleep(1)
+            except Exception as e:
+                logger.warning(f"Topic search failed for {topic}: {e}")
+    return list(all_repos.values())
+
+
 async def fetch_trending_multi(languages: list[str]) -> dict[str, list[TrendingRepo]]:
     """抓取 daily/weekly/monthly 三个维度"""
     result = {}

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     cron_minute: int = 0
     github_token: str = ""
     trending_languages: str = "python,javascript,typescript,vue,go,rust"
+    trending_topics: str = ""
     trending_since: str = "daily"
     max_projects: int = 25
     dedup_days: int = 7
