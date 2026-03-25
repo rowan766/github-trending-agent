@@ -8,6 +8,9 @@ EMAIL_TEMPLATE = """<!DOCTYPE html>
 <p style="margin:0 0 16px;padding:12px 16px;background:#fff8f0;border:1px solid #f7c99d;border-radius:8px;font-size:14px;color:#8a4b08">
   线上访问地址：<a href="https://ai.zenoly.cn/web/#/login" style="color:#c65d09;font-weight:bold;text-decoration:none">https://ai.zenoly.cn/web/#/login</a>
 </p>
+<p style="margin:0 0 16px;padding:12px 16px;background:#f6f8fa;border:1px solid #d0d7de;border-radius:8px;font-size:14px;color:#24292f">
+  GitHub 仓库地址：<a href="https://github.com/rowan766/github-trending-agent" style="color:#0969da;font-weight:bold;text-decoration:none">https://github.com/rowan766/github-trending-agent</a>
+</p>
 <h1 style="border-bottom:3px solid #f0883e;padding-bottom:10px">🔥 GitHub Trending 日报</h1>
 <p style="color:#666">{{ report_date }} · 共分析 {{ total }} 个项目，推送 {{ pushed }} 个</p>
 
