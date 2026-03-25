@@ -2,6 +2,8 @@
 
 每日自动抓取 GitHub Trending 热门项目，AI 分析后通过邮件推送日报。
 
+线上访问地址：`https://ai.zenoly.cn/web/#/login`
+
 ## 特性
 
 - 自动抓取 GitHub Trending（多语言、daily/weekly/monthly）

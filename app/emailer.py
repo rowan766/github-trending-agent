@@ -52,6 +52,9 @@ async def send_verification_code(email: str, code: str) -> bool:
 
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+      <p style="margin:0 0 16px;padding:12px 16px;background:#fff8f0;border:1px solid #f7c99d;border-radius:8px;font-size:14px;color:#8a4b08">
+        线上访问地址：<a href="https://ai.zenoly.cn/web/#/login" style="color:#c65d09;font-weight:bold;text-decoration:none">https://ai.zenoly.cn/web/#/login</a>
+      </p>
       <h2 style="color:#f0883e;margin-bottom:8px">🔥 GitHub Trending Agent</h2>
       <p style="color:#555;margin-bottom:20px">您正在绑定接收邮箱，验证码如下：</p>
       <div style="font-size:36px;font-weight:bold;color:#333;letter-spacing:12px;

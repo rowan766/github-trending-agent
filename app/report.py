@@ -5,6 +5,9 @@ from app.models import AnalyzedRepo
 EMAIL_TEMPLATE = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body id="top" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:700px;margin:0 auto;padding:20px;color:#333">
+<p style="margin:0 0 16px;padding:12px 16px;background:#fff8f0;border:1px solid #f7c99d;border-radius:8px;font-size:14px;color:#8a4b08">
+  线上访问地址：<a href="https://ai.zenoly.cn/web/#/login" style="color:#c65d09;font-weight:bold;text-decoration:none">https://ai.zenoly.cn/web/#/login</a>
+</p>
 <h1 style="border-bottom:3px solid #f0883e;padding-bottom:10px">🔥 GitHub Trending 日报</h1>
 <p style="color:#666">{{ report_date }} · 共分析 {{ total }} 个项目，推送 {{ pushed }} 个</p>
 
