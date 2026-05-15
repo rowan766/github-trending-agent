@@ -12,6 +12,7 @@ class TrendingRepo:
     forks: int = 0
     topics: list[str] = field(default_factory=list)
     readme_snippet: str = ""
+    homepage: str = ""
 
     def to_dict(self) -> dict:
         return asdict(self)

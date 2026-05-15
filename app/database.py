@@ -200,8 +200,8 @@ async def init_db():
 
 # ---- Users ----
 async def create_user(username: str, password: str, email: str = "", role: str = "user") -> dict:
-    hashed = hash_password(password)
-    async with get_pool().acquire() as conn:
+    hashed = hash_password(password) # 密码加密
+    async with get_pool().acquire() as conn: # 从连接池里拿一个数据库连接
         try:
             row = await conn.fetchrow(
                 """INSERT INTO users (username, password, email, role, tech_stack)
@@ -209,12 +209,12 @@ async def create_user(username: str, password: str, email: str = "", role: str =
                    RETURNING id, username, email, role, receive_email, created_at""",
                 username, hashed, email, role,
                 DEFAULT_TECH_STACK,
-            )
+            ) # 插入 users 表 用 RETURNING 把刚插入的用户信息直接返回
             return {
                 "id": row["id"], "username": row["username"], "email": row["email"],
                 "role": row["role"], "receive_email": bool(row["receive_email"]),
                 "created_at": str(row["created_at"]),
-            }
+            } # 组装返回结果
         except asyncpg.UniqueViolationError:
             return None
 

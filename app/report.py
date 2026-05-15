@@ -18,6 +18,7 @@ EMAIL_TEMPLATE = """<!DOCTYPE html>
 <div style="padding:12px 16px;margin:10px 0;background:#fafbfc;border:1px solid #eee;border-radius:8px{% if item.highlight %};border-left:4px solid #f0883e;background:#fff8f0{% endif %}">
   <div>
     <a href="{{ item.repo.url }}" style="font-size:16px;font-weight:bold;color:#0969da;text-decoration:none">{{ item.repo.name }}</a>
+    <span style="color:#666;margin-left:8px;font-size:12px">({{ item.repo.url }})</span>
     <span style="background:#ddf4ff;color:#0969da;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:8px">{{ item.category }}</span>
     {% if item.highlight %}<span style="background:#fff0e0;color:#f0883e;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:4px">🎯 相关</span>{% endif %}
     {% if show_total_stars %}
@@ -27,6 +28,7 @@ EMAIL_TEMPLATE = """<!DOCTYPE html>
     {% endif %}
     {% if item.repo.language %}<span style="color:#999;margin-left:8px;font-size:12px">{{ item.repo.language }}</span>{% endif %}
   </div>
+  {% if item.repo.homepage %}<p style="margin:4px 0;font-size:12px;color:#666">🌐 <a href="{{ item.repo.homepage }}" style="color:#0969da;text-decoration:none">{{ item.repo.homepage }}</a></p>{% endif %}
   <p style="margin:8px 0 4px;font-size:14px">{{ item.summary_zh|e }}</p>
   {% if item.relevance_reason %}<p style="margin:0;font-size:12px;color:#888">💡 {{ item.relevance_reason|e }}</p>{% endif %}
 </div>

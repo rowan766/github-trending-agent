@@ -19,6 +19,7 @@ async def enrich_repo(repo: TrendingRepo, token: str = "") -> TrendingRepo:
                 repo.topics = data.get("topics", [])
                 if not repo.description:
                     repo.description = data.get("description", "") or ""
+                repo.homepage = data.get("homepage", "") or ""
 
             resp = await client.get(
                 f"{API_BASE}/repos/{repo.name}/readme",
